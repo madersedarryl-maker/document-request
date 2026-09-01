@@ -1,0 +1,172 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: #0f172a;
+    background-color: #f8fafc;
+  }
+
+  h1, h2, h3, .font-serif {
+    font-family: 'DM Serif Display', 'Playfair Display', Georgia, serif;
+    letter-spacing: -0.015em;
+  }
+
+  .font-emblem {
+    font-family: 'Cinzel', serif;
+  }
+}
+
+/* Custom subtle scrollbar */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Institutional Card effects */
+.card-hover-effect {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
+}
+
+.card-hover-effect:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px -4px rgba(15, 23, 42, 0.08), 0 4px 8px -2px rgba(15, 23, 42, 0.04);
+}
+
+/* Gold glow accent */
+.gold-glow {
+  box-shadow: 0 0 24px -2px rgba(217, 119, 6, 0.3);
+}
+
+.maroon-glow {
+  box-shadow: 0 10px 25px -5px rgba(139, 30, 35, 0.3);
+}
+
+/* ==========================================================================
+   Printer-Friendly CSS Stylesheet & Print Optimizations
+   ========================================================================== */
+@media print {
+  /* Page margins & document defaults */
+  @page {
+    size: letter portrait;
+    margin: 12mm 12mm 14mm 12mm;
+  }
+
+  /* Reset body canvas for crisp ink-friendly printing */
+  html, body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    font-size: 11pt !important;
+    line-height: 1.4 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide interactive web chrome and navigation */
+  nav,
+  footer,
+  aside,
+  .no-print,
+  .print-hide,
+  [data-print-hide="true"],
+  button:not(.print-keep),
+  .toast-container,
+  .modal-backdrop,
+  [role="dialog"] {
+    display: none !important;
+  }
+
+  /* Main container reset */
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+  }
+
+  /* Container width & shadow stripping */
+  .print-clean-container {
+    max-width: 100% !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: transparent !important;
+  }
+
+  /* Printable Queue Table */
+  table.print-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    margin-top: 10pt !important;
+    margin-bottom: 10pt !important;
+    font-size: 8.5pt !important;
+  }
+
+  table.print-table thead {
+    display: table-header-group !important;
+  }
+
+  table.print-table tfoot {
+    display: table-footer-group !important;
+  }
+
+  table.print-table tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  table.print-table th {
+    background-color: #f1f5f9 !important;
+    color: #0f172a !important;
+    border: 1px solid #cbd5e1 !important;
+    padding: 6pt 8pt !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.04em !important;
+    font-size: 8pt !important;
+  }
+
+  table.print-table td {
+    border: 1px solid #e2e8f0 !important;
+    padding: 5.5pt 8pt !important;
+    color: #1e293b !important;
+    vertical-align: middle !important;
+  }
+
+  table.print-table tbody tr:nth-child(even) {
+    background-color: #f8fafc !important;
+  }
+
+  /* Printer friendly badges */
+  .print-badge {
+    display: inline-block !important;
+    padding: 1pt 5pt !important;
+    border-radius: 3pt !important;
+    font-size: 7.5pt !important;
+    font-weight: 600 !important;
+    border: 1px solid #94a3b8 !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  /* Signature Block at page bottom */
+  .print-signature-block {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    margin-top: 25pt !important;
+  }
+}

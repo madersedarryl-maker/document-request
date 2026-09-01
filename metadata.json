@@ -1,0 +1,6 @@
+{
+  "name": "IBA College of Mindanao - IBACMI",
+  "description": "Official web portal and academic hub for IBA College of Mindanao, Inc. featuring academic programs, online admissions, student portal, document request services, and campus news.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
