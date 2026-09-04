@@ -5,36 +5,36 @@ import { Link } from 'react-router-dom';
 
 export const TopBar: React.FC = () => {
   return (
-    <div className="bg-slate-900 text-slate-300 text-xs border-b border-slate-800">
+    <div className="bg-[#4d0c19] text-amber-100/90 text-xs border-b border-[#691225] shadow-xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col md:flex-row items-center justify-between py-2 gap-2">
           {/* Contact Details & Location */}
           <div className="flex flex-wrap items-center justify-center md:justify-start gap-x-5 gap-y-1 text-[11px] sm:text-xs">
             <a
-              href={`tel:${COLLEGE_INFO.contactNumber}`}
-              className="flex items-center gap-1.5 hover:text-amber-400 transition-colors"
+              href="tel:0917-863-5683"
+              className="flex items-center gap-1.5 hover:text-amber-300 transition-colors"
               title="Call IBACMI Admissions"
             >
               <Phone className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-              <span>{COLLEGE_INFO.contactNumber}</span>
+              <span className="font-medium tracking-wide">0917-863-5683</span>
             </a>
 
             <a
-              href={`mailto:${COLLEGE_INFO.email}`}
-              className="flex items-center gap-1.5 hover:text-amber-400 transition-colors"
+              href="mailto:ibacmiregistrar@gmail.com"
+              className="flex items-center gap-1.5 hover:text-amber-300 transition-colors"
               title="Email Registrar"
             >
               <Mail className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-              <span className="hidden sm:inline">{COLLEGE_INFO.email}</span>
-              <span className="sm:hidden">Email Us</span>
+              <span className="hidden sm:inline font-medium">ibacmiregistrar@gmail.com</span>
+              <span className="sm:hidden font-medium">Email Registrar</span>
             </a>
 
-            <div className="hidden lg:flex items-center gap-1.5 text-slate-400">
+            <div className="hidden lg:flex items-center gap-1.5 text-amber-200/80">
               <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" />
               <span>TN Pepito St., Valencia City</span>
             </div>
 
-            <div className="hidden xl:flex items-center gap-1.5 text-slate-400">
+            <div className="hidden xl:flex items-center gap-1.5 text-amber-200/80">
               <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
               <span>Mon-Fri: 8AM-5PM | Sat: 8AM-12NN</span>
             </div>
@@ -45,7 +45,7 @@ export const TopBar: React.FC = () => {
             <div className="flex items-center gap-2">
               <Link
                 to="/track"
-                className="px-2.5 py-0.5 rounded bg-red-950 text-red-200 border border-red-800/80 hover:bg-red-900 hover:text-white transition-colors flex items-center gap-1 font-medium"
+                className="px-2.5 py-0.5 rounded-md bg-[#6d1326] text-amber-200 border border-[#8a1932] hover:bg-[#851831] hover:text-white transition-colors flex items-center gap-1 font-medium shadow-xs"
               >
                 <ShieldCheck className="w-3 h-3 text-amber-400" />
                 <span>Track Request</span>
@@ -53,7 +53,7 @@ export const TopBar: React.FC = () => {
 
               <Link
                 to="/login"
-                className="px-2.5 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30 hover:bg-amber-500 hover:text-slate-950 font-semibold transition-colors flex items-center gap-1"
+                className="px-2.5 py-0.5 rounded-md bg-amber-400 text-[#4d0c19] hover:bg-amber-300 font-bold transition-colors flex items-center gap-1 shadow-xs"
               >
                 <span>Portal Login</span>
                 <ExternalLink className="w-2.5 h-2.5" />

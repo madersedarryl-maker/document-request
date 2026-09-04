@@ -383,3 +383,105 @@ export const SystemSettingsSkeleton: React.FC = () => {
     </div>
   );
 };
+
+/**
+ * Dedicated Staff Queue Table Skeleton matching the exact 8-column layout
+ */
+export const StaffQueueTableSkeleton: React.FC<{ rows?: number }> = ({ rows = 7 }) => {
+  return (
+    <div>
+      {/* Desktop Table Skeleton */}
+      <div className="hidden md:block overflow-x-auto">
+        <table className="min-w-full divide-y divide-slate-200">
+          <thead className="bg-slate-50/90 text-left text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+            <tr>
+              <th scope="col" className="w-10 px-3 py-3 text-center">
+                <Skeleton className="h-4 w-4 rounded mx-auto" />
+              </th>
+              <th scope="col" className="w-12 px-2 py-3 text-center">
+                <Skeleton className="h-3 w-6 rounded mx-auto" />
+              </th>
+              <th scope="col" className="px-4 py-3">
+                <Skeleton className="h-3 w-20 rounded" />
+              </th>
+              <th scope="col" className="px-4 py-3">
+                <Skeleton className="h-3 w-28 rounded" />
+              </th>
+              <th scope="col" className="px-4 py-3">
+                <Skeleton className="h-3 w-32 rounded" />
+              </th>
+              <th scope="col" className="px-4 py-3">
+                <Skeleton className="h-3 w-16 rounded" />
+              </th>
+              <th scope="col" className="px-4 py-3">
+                <Skeleton className="h-3 w-14 rounded" />
+              </th>
+              <th scope="col" className="px-4 py-3">
+                <Skeleton className="h-3 w-16 rounded" />
+              </th>
+              <th scope="col" className="px-4 py-3 text-right">
+                <Skeleton className="h-3 w-12 rounded ml-auto" />
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-slate-100">
+            {Array.from({ length: rows }).map((_, idx) => (
+              <tr key={idx} className="animate-pulse">
+                <td className="px-3 py-4 text-center">
+                  <Skeleton className="h-4 w-4 rounded mx-auto" />
+                </td>
+                <td className="px-2 py-4 text-center">
+                  <Skeleton className="h-4 w-5 rounded mx-auto" />
+                </td>
+                <td className="px-4 py-4 space-y-1.5">
+                  <Skeleton className="h-4 w-24 rounded bg-slate-200" />
+                  <Skeleton className="h-2.5 w-16 rounded bg-slate-100" />
+                </td>
+                <td className="px-4 py-4 space-y-1.5">
+                  <Skeleton className="h-3.5 w-32 rounded bg-slate-200" />
+                  <Skeleton className="h-2.5 w-24 rounded bg-slate-100" />
+                </td>
+                <td className="px-4 py-4 space-y-1.5">
+                  <Skeleton className="h-3.5 w-36 rounded bg-slate-200" />
+                  <Skeleton className="h-2.5 w-20 rounded bg-slate-100" />
+                </td>
+                <td className="px-4 py-4">
+                  <Skeleton className="h-6 w-24 rounded-full bg-slate-200" />
+                </td>
+                <td className="px-4 py-4">
+                  <Skeleton className="h-5 w-16 rounded-full bg-slate-100" />
+                </td>
+                <td className="px-4 py-4">
+                  <Skeleton className="h-5 w-20 rounded-full bg-slate-100" />
+                </td>
+                <td className="px-4 py-4 text-right">
+                  <Skeleton className="h-8 w-20 rounded-lg ml-auto bg-slate-200" />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Mobile Card List Skeleton */}
+      <div className="md:hidden divide-y divide-slate-100 p-3 space-y-3">
+        {Array.from({ length: Math.min(rows, 4) }).map((_, idx) => (
+          <div key={idx} className="p-3 bg-white rounded-xl border border-slate-100 space-y-2.5 animate-pulse">
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-4 w-24 rounded" />
+              <Skeleton className="h-5 w-20 rounded-full" />
+            </div>
+            <div className="space-y-1">
+              <Skeleton className="h-3.5 w-36 rounded" />
+              <Skeleton className="h-2.5 w-24 rounded" />
+            </div>
+            <div className="flex items-center justify-between pt-1">
+              <Skeleton className="h-4 w-16 rounded" />
+              <Skeleton className="h-6 w-20 rounded" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};

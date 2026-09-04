@@ -1,6 +1,7 @@
 import React from 'react';
 import { HeroBanner } from '../../components/ibacmi/HeroBanner';
 import { QuickStats } from '../../components/ibacmi/QuickStats';
+import { MostRequestedDocuments } from '../../components/ibacmi/MostRequestedDocuments';
 import { ProgramsSection } from '../../components/ibacmi/ProgramsSection';
 import { FacilitiesSection } from '../../components/ibacmi/FacilitiesSection';
 import { OnlineServicesHub } from '../../components/ibacmi/OnlineServicesHub';
@@ -16,6 +17,9 @@ export const HomePage: React.FC = () => {
 
       {/* Quick Stats Bar */}
       <QuickStats />
+
+      {/* Most Requested Documents Section - Ranked 1 to 8 by demand */}
+      <MostRequestedDocuments />
 
       {/* Featured Programs Section */}
       <ProgramsSection

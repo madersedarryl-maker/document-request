@@ -11,6 +11,7 @@ import {
 import { storageService } from './storageService';
 import { mockStore } from './mockStore';
 import { verificationService } from './verificationService';
+import { emailService } from './emailService';
 
 export interface SubmitRequestPayload {
   documentTypeId?: string;
@@ -529,6 +530,20 @@ export const requestService = {
       } catch (e) {
         console.warn('Supabase updateRequestStatus error:', e);
       }
+    }
+
+    // Trigger automated email notification to student informing them of the status progress
+    try {
+      const updatedReq = mockStore.getRequestById(requestId);
+      if (updatedReq) {
+        await emailService.sendSingleStatusEmailNotification(updatedReq, newStatus, {
+          reason,
+          comment,
+          senderId: changedBy,
+        });
+      }
+    } catch (emailErr) {
+      console.warn('Automated status change email notification failed:', emailErr);
     }
   },
 

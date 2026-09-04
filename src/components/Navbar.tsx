@@ -151,8 +151,8 @@ export const Navbar: React.FC = () => {
                           to={item.path}
                           className={`px-3 py-2 text-xs font-semibold rounded-lg flex items-center gap-1 transition-colors ${
                             location.pathname.startsWith('/programs')
-                              ? 'text-blue-700 bg-blue-50 font-bold'
-                              : 'text-slate-700 hover:text-slate-950 hover:bg-slate-50'
+                              ? 'text-[#7a132b] bg-[#7a132b]/10 font-bold'
+                              : 'text-slate-700 hover:text-[#7a132b] hover:bg-rose-50/50'
                           }`}
                         >
                           <span>{item.name}</span>
@@ -208,7 +208,7 @@ export const Navbar: React.FC = () => {
                   to="/dashboard"
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${
                     isActive('/dashboard')
-                      ? 'bg-blue-50 text-blue-700 font-semibold'
+                      ? 'bg-[#7a132b]/10 text-[#7a132b] font-bold'
                       : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                   }`}
                 >
@@ -223,7 +223,7 @@ export const Navbar: React.FC = () => {
                       to="/my-requests"
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${
                         isActive('/my-requests')
-                          ? 'bg-blue-50 text-blue-700 font-semibold'
+                          ? 'bg-[#7a132b]/10 text-[#7a132b] font-bold'
                           : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                       }`}
                     >
@@ -234,8 +234,8 @@ export const Navbar: React.FC = () => {
                       to="/new-request"
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${
                         isActive('/new-request')
-                          ? 'bg-blue-50 text-blue-700 font-semibold'
-                          : 'text-blue-700 hover:bg-blue-50'
+                          ? 'bg-[#7a132b] text-white font-bold shadow-2xs'
+                          : 'text-[#7a132b] hover:bg-rose-50'
                       }`}
                     >
                       <PlusCircle className="w-4 h-4" />
@@ -247,7 +247,7 @@ export const Navbar: React.FC = () => {
                     to="/staff/queue"
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${
                       isActive('/staff/queue')
-                        ? 'bg-blue-50 text-blue-700 font-semibold'
+                        ? 'bg-[#7a132b]/10 text-[#7a132b] font-bold'
                         : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                     }`}
                   >
@@ -357,6 +357,18 @@ export const Navbar: React.FC = () => {
               ) : (
                 /* Authenticated User Controls */
                 <div className="flex items-center space-x-2">
+                  {/* Open Staff/Admin Portal button */}
+                  {(role === 'STAFF' || role === 'ADMIN') && (
+                    <Link
+                      to="/dashboard"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#7a132b] hover:bg-[#8f1733] text-white text-xs font-bold transition-all shadow-2xs"
+                      title="Open Admin/Staff Workspace with Sidebar Navigation"
+                    >
+                      <LayoutDashboard className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">{role === 'ADMIN' ? 'Admin Portal' : 'Staff Portal'}</span>
+                    </Link>
+                  )}
+
                   {/* Demo Role Switcher Dropdown */}
                   <div className="relative" ref={roleSwitcherRef}>
                     <button

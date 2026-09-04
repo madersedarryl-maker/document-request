@@ -8,11 +8,12 @@ import { DocumentRequest, DocumentType, RequestStatus, RequestPriority, EmailNot
 import { StatusBadge, PriorityBadge, PaymentBadge } from '../../components/StatusBadge';
 import { PageHeader } from '../../components/PageHeader';
 import { Button } from '../../components/Button';
-import { TableSkeleton } from '../../components/Skeletons';
+import { StaffQueueTableSkeleton, TableSkeleton } from '../../components/Skeletons';
 import { EmptyState } from '../../components/EmptyState';
 import { QueueEmptyState } from '../../components/QueueEmptyState';
 import { QueueStatusSummaryCard } from '../../components/QueueStatusSummaryCard';
 import { AutoRefreshToggle } from '../../components/AutoRefreshToggle';
+import officialLogoImg from '../../assets/images/ibacmi-logo.png';
 import { Modal } from '../../components/Modal';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -584,10 +585,31 @@ export const StaffRequestQueue: React.FC = () => {
         })
       );
 
+      let sentEmailCount = 0;
+      if (triggerEmailNotifications) {
+        try {
+          const emailResult = await emailService.sendBulkStatusEmailNotifications(
+            selectedRequests,
+            batchTargetStatus,
+            {
+              remarks: batchRemark.trim() || undefined,
+              customSubject: customEmailSubject.trim() || undefined,
+              customBody: customEmailBody.trim() || undefined,
+            }
+          );
+          sentEmailCount = emailResult.totalSent;
+        } catch (emailErr) {
+          console.warn('Batch email notification dispatch warning:', emailErr);
+        }
+      }
+
       setBatchFeedback({
         type: 'SUCCESS',
-        message: `Successfully updated ${result.successCount} request(s) to "${batchTargetStatus.replace(/_/g, ' ')}"`,
+        message: `Successfully updated ${result.successCount} request(s) to "${batchTargetStatus.replace(/_/g, ' ')}"${
+          sentEmailCount > 0 ? ` and sent ${sentEmailCount} automated student email notification(s).` : '.'
+        }`,
         count: result.successCount,
+        emailCount: sentEmailCount,
       });
 
       // Clear selection after 1.5s and close modal
@@ -1040,9 +1062,7 @@ export const StaffRequestQueue: React.FC = () => {
       {/* 3. Main Data Table */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
         {loading ? (
-          <div className="p-5">
-            <TableSkeleton rows={8} columns={8} />
-          </div>
+          <StaffQueueTableSkeleton rows={pageSize} />
         ) : filtered.length === 0 ? (
           <div className="p-4 sm:p-6">
             <QueueEmptyState
@@ -1781,6 +1801,75 @@ export const StaffRequestQueue: React.FC = () => {
             />
           </div>
 
+          {/* Automated Student Email Notification Setting */}
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={triggerEmailNotifications}
+                  onChange={(e) => setTriggerEmailNotifications(e.target.checked)}
+                  disabled={batchSubmitting}
+                  className="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500 cursor-pointer accent-blue-600"
+                />
+                <div>
+                  <p className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <span>Send Automated Student Email Notifications</span>
+                    <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-semibold">
+                      Automated
+                    </span>
+                  </p>
+                  <p className="text-[11px] text-slate-500">
+                    Students will automatically receive an official registrar email notification about this status change.
+                  </p>
+                </div>
+              </label>
+
+              {triggerEmailNotifications && (
+                <button
+                  type="button"
+                  onClick={() => setIsEmailTemplateExpanded(!isEmailTemplateExpanded)}
+                  className="text-xs font-semibold text-blue-700 hover:text-blue-900 hover:underline shrink-0"
+                >
+                  {isEmailTemplateExpanded ? 'Hide Template' : 'Preview & Customize'}
+                </button>
+              )}
+            </div>
+
+            {triggerEmailNotifications && isEmailTemplateExpanded && (
+              <div className="pt-2 border-t border-slate-200 space-y-2.5 text-xs">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                    Subject Line Template
+                  </label>
+                  <input
+                    type="text"
+                    value={customEmailSubject}
+                    onChange={(e) => setCustomEmailSubject(e.target.value)}
+                    placeholder={STATUS_EMAIL_TEMPLATES[batchTargetStatus]?.subjectTemplate || '[iBACMI Registrar] Update on your request {REQUEST_NUMBER}'}
+                    className="w-full text-xs p-2 bg-white border border-slate-200 rounded-lg text-slate-800 placeholder:text-slate-400 focus:ring-1 focus:ring-blue-500"
+                  />
+                  <span className="text-[10px] text-slate-400">
+                    Supports placeholders: &#123;REQUEST_NUMBER&#125;, &#123;DOCUMENT_TYPE&#125;, &#123;STUDENT_NAME&#125;
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                    Custom Message Body (Optional)
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={customEmailBody}
+                    onChange={(e) => setCustomEmailBody(e.target.value)}
+                    placeholder={STATUS_EMAIL_TEMPLATES[batchTargetStatus]?.bodyTemplate || 'Dear {STUDENT_NAME},\n\nYour request has progressed to the next stage...'}
+                    className="w-full text-xs p-2 bg-white border border-slate-200 rounded-lg text-slate-800 placeholder:text-slate-400 focus:ring-1 focus:ring-blue-500 resize-none font-mono text-[11px]"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Feedback & Progress */}
           {batchProgress && (
             <div className="space-y-1.5">
@@ -1902,9 +1991,11 @@ export const StaffRequestQueue: React.FC = () => {
         {/* Official Institutional Header */}
         <div className="text-center pb-3 mb-3 border-b-2 border-slate-900">
           <div className="flex items-center justify-center gap-3 mb-1">
-            <div className="w-10 h-10 rounded-full border-2 border-slate-900 flex items-center justify-center font-serif font-black text-xs text-slate-900">
-              IBACMI
-            </div>
+            <img
+              src={officialLogoImg}
+              alt="IBA College of Mindanao Official Seal"
+              className="w-12 h-12 object-contain"
+            />
             <div>
               <h1 className="text-xs font-bold uppercase tracking-wider text-slate-900">
                 International Baptist Academy & College of Ministries, Inc.

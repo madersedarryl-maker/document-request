@@ -23,20 +23,6 @@ export const STATUS_EMAIL_TEMPLATES: Record<RequestStatus, EmailTemplateConfig> 
     actionTitle: 'Intake Completed',
     nextSteps: 'Please monitor your student portal for requirement verification updates.',
   },
-  PENDING_PAYMENT: {
-    subjectTemplate: '[iBACMI Registrar] Payment Required for Request {REQUEST_NUMBER}',
-    bodyTemplate:
-      'Dear {STUDENT_NAME},\n\nYour document request {REQUEST_NUMBER} for {DOCUMENT_TYPE} requires settlement of processing fees before production can proceed.\n\nFee Amount: ₱{FEE}\nPayment Status: Pending Assessment',
-    actionTitle: 'Payment Settlement Needed',
-    nextSteps: 'Please pay online via your student portal or present your reference number at the Cashier Window.',
-  },
-  PAYMENT_VERIFIED: {
-    subjectTemplate: '[iBACMI Registrar] Payment Confirmed: {REQUEST_NUMBER}',
-    bodyTemplate:
-      'Dear {STUDENT_NAME},\n\nPayment for your document request {REQUEST_NUMBER} ({DOCUMENT_TYPE}) has been successfully verified. Your request has moved to the verification queue.',
-    actionTitle: 'Payment Acknowledged',
-    nextSteps: 'Your documentary requirements are currently being verified by registrar evaluators.',
-  },
   UNDER_REVIEW: {
     subjectTemplate: '[iBACMI Registrar] Documentary Requirements Under Evaluation: {REQUEST_NUMBER}',
     bodyTemplate:
@@ -151,9 +137,9 @@ export const emailService = {
       `student.${request.student?.student_id || 'user'}@ibacmi.edu.ph`;
     const docTypeName = request.document_type?.name || 'Document Request';
     const releaseMethod =
-      request.release_method === 'DELIVERY'
+      request.release_method === 'COURIER'
         ? 'Courier Delivery to ' + (request.delivery_address || 'Registered Address')
-        : request.release_method === 'DIGITAL'
+        : request.release_method === 'DIGITAL_COPY'
         ? 'Digital E-Copy Download'
         : 'On-Campus Registrar Pickup';
 
@@ -420,6 +406,45 @@ export const emailService = {
       logs,
       recipientsList,
     };
+  },
+
+  /**
+   * Send single automated status update email notification to student
+   */
+  async sendSingleStatusEmailNotification(
+    requestOrId: DocumentRequest | string,
+    targetStatus: RequestStatus,
+    options?: {
+      reason?: string;
+      comment?: string;
+      customSubject?: string;
+      customBody?: string;
+      senderId?: string;
+      senderName?: string;
+    }
+  ): Promise<EmailNotificationLog | null> {
+    let request: DocumentRequest | null = null;
+    if (typeof requestOrId === 'string') {
+      request = mockStore.getRequestById(requestOrId);
+    } else {
+      request = requestOrId;
+    }
+
+    if (!request) return null;
+
+    const result = await this.sendBulkStatusEmailNotifications(
+      [request],
+      targetStatus,
+      {
+        remarks: options?.comment || options?.reason,
+        customSubject: options?.customSubject,
+        customBody: options?.customBody,
+        senderId: options?.senderId,
+        senderName: options?.senderName,
+      }
+    );
+
+    return result.logs[0] || null;
   },
 
   /**
