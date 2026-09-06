@@ -15,6 +15,8 @@ import { QueueStatusSummaryCard } from '../../components/QueueStatusSummaryCard'
 import { AutoRefreshToggle } from '../../components/AutoRefreshToggle';
 import officialLogoImg from '../../assets/images/ibacmi-logo.png';
 import { Modal } from '../../components/Modal';
+import { PrintPreviewModal } from '../../components/PrintPreviewModal';
+import { StaffQueueFilterBar, DatePreset, SearchTarget } from '../../components/StaffQueueFilterBar';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Download,
@@ -57,7 +59,7 @@ import {
   HelpCircle,
   SendHorizontal,
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, parseISO, startOfDay, endOfDay } from 'date-fns';
 
 // Helper for highlighting matched substring in real-time
 const highlightMatch = (text: string | undefined | null, query: string): React.ReactNode => {
@@ -136,10 +138,14 @@ export const StaffRequestQueue: React.FC = () => {
 
   // Filters & Search
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchTarget, setSearchTarget] = useState<SearchTarget>('ALL');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [priorityFilter, setPriorityFilter] = useState<string>('ALL');
   const [docTypeFilter, setDocTypeFilter] = useState<string>('ALL');
   const [paymentFilter, setPaymentFilter] = useState<string>('ALL');
+  const [dateFrom, setDateFrom] = useState<string>('');
+  const [dateTo, setDateTo] = useState<string>('');
+  const [datePreset, setDatePreset] = useState<DatePreset>('ALL');
   const [overdueOnly, setOverdueOnly] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
@@ -200,6 +206,22 @@ export const StaffRequestQueue: React.FC = () => {
   const [isPriorityModalOpen, setIsPriorityModalOpen] = useState(false);
   const [batchTargetPriority, setBatchTargetPriority] = useState<RequestPriority>('HIGH');
   const [prioritySubmitting, setPrioritySubmitting] = useState(false);
+
+  // Print Preview Modal State
+  const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
+  const [printPreviewSingleRequest, setPrintPreviewSingleRequest] = useState<DocumentRequest | null>(null);
+  const [printPreviewInitialMode, setPrintPreviewInitialMode] = useState<'queue' | 'document'>('queue');
+
+  const handleOpenPrintPreview = (singleReq?: DocumentRequest) => {
+    if (singleReq) {
+      setPrintPreviewSingleRequest(singleReq);
+      setPrintPreviewInitialMode('document');
+    } else {
+      setPrintPreviewSingleRequest(null);
+      setPrintPreviewInitialMode('queue');
+    }
+    setIsPrintPreviewOpen(true);
+  };
 
   // Manual Drag-and-Drop Prioritization State
   const [customOrderIds, setCustomOrderIds] = useState<string[]>(() => {
@@ -426,9 +448,25 @@ export const StaffRequestQueue: React.FC = () => {
     return () => clearInterval(timer);
   }, [autoRefreshEnabled, refreshIntervalSec]);
 
-  // Real-time filter application supporting student name, ID, reference number, doc type, program, purpose
+  // Count how many requests in the queue belong to each document type
+  const docTypeCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    requests.forEach((r) => {
+      if (r.document_type_id) {
+        counts[r.document_type_id] = (counts[r.document_type_id] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [requests]);
+
+  // Real-time filter application supporting student name, ID, reference number, doc type, program, purpose, and specific date ranges
   const filtered = useMemo(() => {
     const term = searchTerm.toLowerCase().trim();
+
+    // Prepare date range timestamps
+    const fromTimestamp = dateFrom ? startOfDay(parseISO(dateFrom)).getTime() : null;
+    const toTimestamp = dateTo ? endOfDay(parseISO(dateTo)).getTime() : null;
+
     return requests.filter((r) => {
       const studentName = r.student?.user?.full_name?.toLowerCase() || '';
       const studentId = r.student?.student_id?.toLowerCase() || '';
@@ -440,17 +478,23 @@ export const StaffRequestQueue: React.FC = () => {
       const docCode = r.document_type?.code?.toLowerCase() || '';
       const purpose = r.purpose?.toLowerCase() || '';
 
-      const matchesSearch =
-        !term ||
-        studentName.includes(term) ||
-        studentId.includes(term) ||
-        requestNumber.includes(term) ||
-        trackingId.includes(term) ||
-        email.includes(term) ||
-        program.includes(term) ||
-        docName.includes(term) ||
-        docCode.includes(term) ||
-        purpose.includes(term);
+      let matchesSearch = true;
+      if (term) {
+        if (searchTarget === 'STUDENT_NAME') {
+          matchesSearch = studentName.includes(term) || studentId.includes(term);
+        } else {
+          matchesSearch =
+            studentName.includes(term) ||
+            studentId.includes(term) ||
+            requestNumber.includes(term) ||
+            trackingId.includes(term) ||
+            email.includes(term) ||
+            program.includes(term) ||
+            docName.includes(term) ||
+            docCode.includes(term) ||
+            purpose.includes(term);
+        }
+      }
 
       const matchesStatus =
         statusFilter === 'ALL' ||
@@ -462,9 +506,43 @@ export const StaffRequestQueue: React.FC = () => {
       const matchesPayment = paymentFilter === 'ALL' || r.payment_status === paymentFilter;
       const matchesOverdue = !overdueOnly || isPendingOverdue(r.status, r.created_at);
 
-      return matchesSearch && matchesStatus && matchesPriority && matchesDocType && matchesPayment && matchesOverdue;
+      // Date Range Matching (based on r.created_at)
+      let matchesDateRange = true;
+      if (fromTimestamp !== null || toTimestamp !== null) {
+        const reqDate = typeof r.created_at === 'string' ? parseISO(r.created_at) : new Date(r.created_at);
+        const reqTimestamp = reqDate.getTime();
+        if (!isNaN(reqTimestamp)) {
+          if (fromTimestamp !== null && reqTimestamp < fromTimestamp) {
+            matchesDateRange = false;
+          }
+          if (toTimestamp !== null && reqTimestamp > toTimestamp) {
+            matchesDateRange = false;
+          }
+        }
+      }
+
+      return (
+        matchesSearch &&
+        matchesStatus &&
+        matchesPriority &&
+        matchesDocType &&
+        matchesPayment &&
+        matchesOverdue &&
+        matchesDateRange
+      );
     });
-  }, [requests, searchTerm, statusFilter, priorityFilter, docTypeFilter, paymentFilter, overdueOnly]);
+  }, [
+    requests,
+    searchTerm,
+    searchTarget,
+    statusFilter,
+    priorityFilter,
+    docTypeFilter,
+    paymentFilter,
+    overdueOnly,
+    dateFrom,
+    dateTo,
+  ]);
 
   // Total pending requests that have exceeded the 3 business days SLA
   const overduePendingTotalCount = useMemo(() => {
@@ -678,9 +756,9 @@ export const StaffRequestQueue: React.FC = () => {
     document.body.removeChild(link);
   };
 
-  // Trigger browser print dialog for printable report
+  // Open Print Preview Modal (allows staff to inspect paper layout before browser print dialog)
   const handlePrint = () => {
-    window.print();
+    handleOpenPrintPreview();
   };
 
   // Data to render in print view (selected items if any, otherwise current filtered queue)
@@ -693,10 +771,14 @@ export const StaffRequestQueue: React.FC = () => {
 
   const handleResetFilters = () => {
     setSearchTerm('');
+    setSearchTarget('ALL');
     setStatusFilter('ALL');
     setPriorityFilter('ALL');
     setDocTypeFilter('ALL');
     setPaymentFilter('ALL');
+    setDateFrom('');
+    setDateTo('');
+    setDatePreset('ALL');
     setOverdueOnly(false);
     setCurrentPage(1);
     handleClearSelection();
@@ -799,9 +881,9 @@ export const StaffRequestQueue: React.FC = () => {
                 size="sm"
                 icon={Printer}
                 onClick={handlePrint}
-                title="Print Queue (Ctrl+P / Cmd+P)"
+                title="Open Print Preview to inspect paper layout (Ctrl+P / Cmd+P)"
               >
-                Print Queue
+                Print Preview
               </Button>
               <Button
                 variant="secondary"
@@ -813,6 +895,56 @@ export const StaffRequestQueue: React.FC = () => {
               </Button>
             </div>
           }
+        />
+
+        {/* Search and Filtering Bar at Top of Queue */}
+        <StaffQueueFilterBar
+          searchTerm={searchTerm}
+          onSearchTermChange={(term) => {
+            setSearchTerm(term);
+            setCurrentPage(1);
+          }}
+          searchTarget={searchTarget}
+          onSearchTargetChange={(target) => {
+            setSearchTarget(target);
+            setCurrentPage(1);
+          }}
+          searchInputRef={searchInputRef}
+          docTypeFilter={docTypeFilter}
+          onDocTypeFilterChange={(dt) => {
+            setDocTypeFilter(dt);
+            setCurrentPage(1);
+          }}
+          docTypes={docTypes}
+          docTypeCounts={docTypeCounts}
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          onDateRangeChange={(from, to, preset) => {
+            setDateFrom(from);
+            setDateTo(to);
+            setDatePreset(preset);
+            setCurrentPage(1);
+          }}
+          datePreset={datePreset}
+          statusFilter={statusFilter}
+          onStatusFilterChange={(st) => {
+            setStatusFilter(st);
+            setCurrentPage(1);
+          }}
+          priorityFilter={priorityFilter}
+          onPriorityFilterChange={(pr) => {
+            setPriorityFilter(pr);
+            setCurrentPage(1);
+          }}
+          overdueOnly={overdueOnly}
+          onToggleOverdue={() => {
+            setOverdueOnly((prev) => !prev);
+            setCurrentPage(1);
+          }}
+          overdueCount={overduePendingTotalCount}
+          totalFilteredCount={filtered.length}
+          totalRequestsCount={requests.length}
+          onResetAllFilters={handleResetFilters}
         />
 
         {/* Status Breakdown Summary Card */}
@@ -832,167 +964,6 @@ export const StaffRequestQueue: React.FC = () => {
           }}
           loading={loading}
         />
-
-        {/* Enterprise Filter and Search Bar */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3">
-          {/* Real-time Search Box */}
-          <div className="relative lg:col-span-5">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            <input
-              ref={searchInputRef}
-              type="text"
-              id="search-queue-input"
-              placeholder="Search by student name, ID, or reference number..."
-              value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="w-full text-xs pl-9 pr-16 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-colors h-9"
-              aria-label="Real-time request search"
-            />
-            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-              {searchTerm ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchTerm('');
-                    searchInputRef.current?.focus();
-                  }}
-                  title="Clear search (Esc)"
-                  className="p-1 text-slate-400 hover:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 rounded cursor-pointer"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              ) : (
-                <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-mono font-medium text-slate-400 bg-slate-100 border border-slate-200 rounded">
-                  /
-                </kbd>
-              )}
-            </div>
-          </div>
-
-          {/* Status Filter */}
-          <div className="lg:col-span-3">
-            <select
-              id="filter-queue-status"
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="w-full text-xs px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-600 h-9 cursor-pointer transition-colors"
-            >
-              <option value="ALL">All Statuses</option>
-              <option value="PENDING">All Pending / Action Needed</option>
-              <option value="SUBMITTED">Submitted (New)</option>
-              <option value="UNDER_REVIEW">Under Review</option>
-              <option value="NEEDS_INFORMATION">Needs Information</option>
-              <option value="FOR_APPROVAL">For Approval</option>
-              <option value="APPROVED">Approved</option>
-              <option value="PROCESSING">Processing</option>
-              <option value="READY_FOR_RELEASE">Ready for Release</option>
-              <option value="RELEASED">Released / Claimed</option>
-              <option value="REJECTED">Rejected</option>
-              <option value="CANCELLED">Cancelled</option>
-            </select>
-          </div>
-
-          {/* Priority Filter */}
-          <div className="lg:col-span-2">
-            <select
-              id="filter-queue-priority"
-              value={priorityFilter}
-              onChange={(e) => {
-                setPriorityFilter(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="w-full text-xs px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-600 h-9 cursor-pointer transition-colors"
-            >
-              <option value="ALL">All Priorities</option>
-              <option value="NORMAL">Normal Priority</option>
-              <option value="HIGH">High Priority</option>
-              <option value="URGENT">Urgent Priority</option>
-            </select>
-          </div>
-
-          {/* Document Type Filter */}
-          <div className="lg:col-span-2">
-            <select
-              id="filter-queue-doctype"
-              value={docTypeFilter}
-              onChange={(e) => {
-                setDocTypeFilter(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="w-full text-xs px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-600 h-9 cursor-pointer transition-colors"
-            >
-              <option value="ALL">All Document Types</option>
-              {docTypes.map((dt) => (
-                <option key={dt.id} value={dt.id}>
-                  {dt.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Real-time Filter Feedback Summary & Quick Reset */}
-        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 pt-2 border-t border-slate-100">
-          <div className="flex flex-wrap items-center gap-2">
-            <span>
-              Found <strong className="text-slate-900 font-semibold">{filtered.length}</strong> matching request(s)
-            </span>
-            {searchTerm && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-medium">
-                Matching: &ldquo;{searchTerm}&rdquo;
-                <button
-                  type="button"
-                  onClick={() => setSearchTerm('')}
-                  className="hover:text-blue-900 ml-0.5 cursor-pointer"
-                >
-                  <X className="w-3 h-3 inline" />
-                </button>
-              </span>
-            )}
-            {/* Urgent SLA Alert Chip / Toggle */}
-            {overduePendingTotalCount > 0 && (
-              <button
-                type="button"
-                id="toggle-overdue-sla-btn"
-                onClick={() => {
-                  setOverdueOnly((prev) => !prev);
-                  setCurrentPage(1);
-                }}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer border shadow-2xs ${
-                  overdueOnly
-                    ? 'bg-amber-500 text-slate-950 border-amber-600 ring-2 ring-amber-400 font-extrabold'
-                    : 'bg-amber-100 text-amber-950 border-amber-300 hover:bg-amber-200'
-                }`}
-                title="Filter to requests that have been in pending status for longer than 3 business days"
-              >
-                <AlertTriangle className="w-3.5 h-3.5 text-amber-800 animate-pulse shrink-0" />
-                <span>
-                  {overdueOnly
-                    ? `Showing ${overduePendingTotalCount} Overdue Pending Only`
-                    : `${overduePendingTotalCount} Pending > 3 Business Days`}
-                </span>
-                {overdueOnly && <X className="w-3 h-3 ml-0.5" />}
-              </button>
-            )}
-          </div>
-          {(searchTerm || statusFilter !== 'ALL' || priorityFilter !== 'ALL' || docTypeFilter !== 'ALL' || paymentFilter !== 'ALL' || overdueOnly) && (
-            <button
-              type="button"
-              onClick={handleResetFilters}
-              className="text-blue-700 hover:text-blue-900 hover:underline font-semibold cursor-pointer"
-            >
-              Reset all filters
-            </button>
-          )}
-        </div>
-      </div>
 
       {/* Manual Queue Prioritization Notice & Reset Banner */}
       <AnimatePresence>
@@ -1072,6 +1043,8 @@ export const StaffRequestQueue: React.FC = () => {
               docTypeFilter={docTypeFilter}
               paymentFilter={paymentFilter}
               overdueFilter={overdueOnly}
+              dateFrom={dateFrom}
+              dateTo={dateTo}
               onClearSearch={() => {
                 setSearchTerm('');
                 searchInputRef.current?.focus();
@@ -1083,6 +1056,11 @@ export const StaffRequestQueue: React.FC = () => {
               onClearDocTypeFilter={() => setDocTypeFilter('ALL')}
               onClearPaymentFilter={() => setPaymentFilter('ALL')}
               onClearOverdueFilter={() => setOverdueOnly(false)}
+              onClearDateFilter={() => {
+                setDateFrom('');
+                setDateTo('');
+                setDatePreset('ALL');
+              }}
             />
           </div>
         ) : (
@@ -1363,6 +1341,20 @@ export const StaffRequestQueue: React.FC = () => {
                                 <span className="sr-only">Move to Top</span>
                               </button>
                             )}
+
+                            {/* Quick Print Routing Slip Preview */}
+                            <button
+                              type="button"
+                              title="Print Preview: Official Routing & Clearance Slip"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenPrintPreview(req);
+                              }}
+                              className="inline-flex items-center p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors border border-transparent hover:border-slate-200"
+                            >
+                              <Printer className="w-3.5 h-3.5" />
+                              <span className="sr-only">Print Slip</span>
+                            </button>
 
                             <Button
                               size="sm"
@@ -1679,9 +1671,9 @@ export const StaffRequestQueue: React.FC = () => {
                   icon={Printer}
                   onClick={handlePrint}
                   className="bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700 hover:text-white"
-                  title="Print selected requests"
+                  title="Open Print Preview for selected requests"
                 >
-                  Print ({selectedRequests.length})
+                  Print Preview ({selectedRequests.length})
                 </Button>
 
                 {/* 6. Export Selected CSV */}
@@ -1982,12 +1974,34 @@ export const StaffRequestQueue: React.FC = () => {
           </div>
         </div>
       </Modal>
+
+      {/* Print Preview Paper Modal */}
+      <PrintPreviewModal
+        isOpen={isPrintPreviewOpen}
+        onClose={() => setIsPrintPreviewOpen(false)}
+        queueData={printableData}
+        singleRequest={printPreviewSingleRequest}
+        initialMode={printPreviewInitialMode}
+        meta={{
+          searchTerm,
+          statusFilter,
+          priorityFilter,
+          docTypeFilter,
+          paymentFilter,
+          dateRangeFilter: dateFrom || dateTo ? `${dateFrom || 'Start'} to ${dateTo || 'End'}` : undefined,
+          totalCount: printableData.length,
+          title:
+            selectedIds.length > 0
+              ? `Official Request Processing Queue (Selected ${printableData.length} Records)`
+              : 'Official Document Processing Queue Report',
+        }}
+      />
       </div> {/* End print:hidden interactive wrapper */}
 
       {/* ------------------------------------------------------------- */}
       {/* 2. OFFICIAL INSTITUTIONAL PRINTABLE QUEUE REPORT */}
       {/* ------------------------------------------------------------- */}
-      <div className="hidden print:block font-sans text-slate-900 print-clean-container">
+      <div className="hidden print:block font-sans text-slate-900 print-clean-container page-print-container">
         {/* Official Institutional Header */}
         <div className="text-center pb-3 mb-3 border-b-2 border-slate-900">
           <div className="flex items-center justify-center gap-3 mb-1">
@@ -2020,7 +2034,7 @@ export const StaffRequestQueue: React.FC = () => {
           </div>
           <div className="text-right">
             <p><strong>Total Included Records:</strong> {printableData.length} request(s)</p>
-            <p><strong>Active Filters:</strong> Status: {statusFilter} | Priority: {priorityFilter} | DocType: {docTypeFilter} | Payment: {paymentFilter}</p>
+            <p><strong>Active Filters:</strong> Status: {statusFilter} | Priority: {priorityFilter} | DocType: {docTypeFilter} | Payment: {paymentFilter} {dateFrom || dateTo ? `| Date: ${dateFrom || 'Start'} to ${dateTo || 'End'}` : ''}</p>
           </div>
         </div>
 

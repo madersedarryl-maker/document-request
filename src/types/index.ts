@@ -341,6 +341,10 @@ export interface EmailNotificationLog {
   sent_at: string;
   sender_name: string;
   remarks?: string | null;
+  delivery_provider?: string;
+  provider_message_id?: string;
+  edge_function_invoked?: boolean;
+  delivery_mode?: 'live' | 'simulated';
 }
 
 export interface AuditLog {

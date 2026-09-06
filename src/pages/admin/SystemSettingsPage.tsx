@@ -17,7 +17,11 @@ import {
   Save,
   RefreshCw,
   Info,
+  Zap,
+  Send,
+  ShieldCheck,
 } from 'lucide-react';
+import { emailService } from '../../services/emailService';
 
 export const SystemSettingsPage: React.FC = () => {
   const { user } = useAuth();
@@ -40,6 +44,36 @@ export const SystemSettingsPage: React.FC = () => {
     max_upload_size_mb: 10,
     allowed_file_types: 'image/jpeg,image/png,application/pdf',
   });
+
+  // Edge Function Testing State
+  const [testEmail, setTestEmail] = useState('');
+  const [testingEdge, setTestingEdge] = useState(false);
+  const [testResult, setTestResult] = useState<{
+    success: boolean;
+    provider: string;
+    messageId: string;
+    message: string;
+  } | null>(null);
+
+  const handleTestEdgeNotification = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    const targetEmail = testEmail.trim() || user?.email || 'student.registrar.test@ibacmi.edu.ph';
+    setTestingEdge(true);
+    setTestResult(null);
+    try {
+      const res = await emailService.testEdgeFunction(targetEmail, 'READY_FOR_RELEASE');
+      setTestResult(res);
+    } catch (err: any) {
+      setTestResult({
+        success: false,
+        provider: 'failed',
+        messageId: 'N/A',
+        message: err.message || 'Edge function test failed.',
+      });
+    } finally {
+      setTestingEdge(false);
+    }
+  };
 
   const loadSettings = async () => {
     try {
@@ -294,6 +328,98 @@ export const SystemSettingsPage: React.FC = () => {
                 className="w-full text-xs font-mono p-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-600"
               />
             </div>
+          </div>
+        </div>
+
+        {/* Supabase Edge Function Automated Email Pipeline */}
+        <div className="space-y-4 pt-4 border-t border-slate-100">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+              <Zap className="w-4 h-4 text-blue-700" />
+              Automated Email Notification System (Supabase Edge Functions)
+            </h2>
+            <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 flex items-center gap-1 border border-emerald-200">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+              Function Active: send-status-email
+            </span>
+          </div>
+
+          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3 text-xs">
+            <p className="text-slate-600 leading-relaxed">
+              When a document request changes status (e.g. Approved, Processing, Ready for Release, Rejected),
+              the system automatically invokes the Supabase Edge Function{' '}
+              <code className="bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-mono text-[11px]">
+                /supabase/functions/send-status-email
+              </code>{' '}
+              to transmit institutional email alerts and persist delivery logs in the database.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 text-[11px]">
+              <div className="p-3 bg-white border border-slate-200 rounded-lg">
+                <span className="font-bold text-slate-800 block mb-1">Supported Dispatch Providers:</span>
+                <ul className="text-slate-600 space-y-0.5 list-disc pl-4">
+                  <li>Resend API (<code className="font-mono text-[10px]">RESEND_API_KEY</code>)</li>
+                  <li>SendGrid API (<code className="font-mono text-[10px]">SENDGRID_API_KEY</code>)</li>
+                  <li>Custom Webhook (<code className="font-mono text-[10px]">NOTIFICATION_WEBHOOK_URL</code>)</li>
+                  <li>High-performance Deno Sandbox (Local / Integrated)</li>
+                </ul>
+              </div>
+
+              <div className="p-3 bg-white border border-slate-200 rounded-lg">
+                <span className="font-bold text-slate-800 block mb-1">Trigger Mechanisms:</span>
+                <ul className="text-slate-600 space-y-0.5 list-disc pl-4">
+                  <li>Supabase Database Webhooks on <code className="font-mono text-[10px]">public.requests</code></li>
+                  <li>PostgreSQL <code className="font-mono text-[10px]">pg_net</code> async triggers</li>
+                  <li>Direct authenticated HTTP invokes from Registrar staff UI</li>
+                </ul>
+              </div>
+            </div>
+
+            {/* Test Invocation Strip */}
+            <div className="pt-3 border-t border-slate-200 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+              <div className="flex-1">
+                <input
+                  type="email"
+                  placeholder="Enter test recipient email address..."
+                  value={testEmail}
+                  onChange={(e) => setTestEmail(e.target.value)}
+                  className="w-full text-xs p-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-600 bg-white"
+                />
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                icon={Send}
+                loading={testingEdge}
+                onClick={handleTestEdgeNotification}
+              >
+                Send Test Edge Notification
+              </Button>
+            </div>
+
+            {/* Diagnostic Result */}
+            {testResult && (
+              <div
+                className={`p-3 rounded-lg border text-xs flex items-start gap-2 ${
+                  testResult.success
+                    ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
+                    : 'bg-rose-50 text-rose-900 border-rose-200'
+                }`}
+              >
+                {testResult.success ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                )}
+                <div>
+                  <p className="font-bold">{testResult.message}</p>
+                  <p className="text-[11px] font-mono mt-0.5 opacity-90">
+                    Provider: {testResult.provider} &bull; Message ID: {testResult.messageId}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

@@ -239,9 +239,7 @@ export const PublicTrack: React.FC = () => {
                         {req.requirement_name}
                         {req.is_mandatory && <span className="text-rose-500 ml-1">*</span>}
                       </span>
-                      <span className="text-[10px] font-semibold text-slate-500 shrink-0">
-                        {req.status.replace(/_/g, ' ')}
-                      </span>
+                      <StatusBadge status={req.status} size="xs" />
                     </div>
                   ))}
                 </div>
@@ -269,8 +267,15 @@ export const PublicTrack: React.FC = () => {
             )}
           </div>
 
-          {/* Timeline */}
-          <Timeline currentStatus={result.status} history={result.status_history} />
+          {/* Timeline & Status History */}
+          <Timeline
+            currentStatus={result.status}
+            history={result.status_history}
+            createdAt={result.created_at}
+            requesterName={result.student?.user?.full_name || 'Verified Student'}
+            requesterRole="STUDENT"
+            requestNumber={result.request_number}
+          />
         </div>
       )}
     </div>

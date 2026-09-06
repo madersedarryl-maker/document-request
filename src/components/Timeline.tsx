@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { RequestStatus, RequestStatusHistory } from '../types';
+import { StatusBadge } from './StatusBadge';
 import {
   CheckCircle2,
   Clock,
@@ -12,14 +13,21 @@ import {
   Send,
   User,
   Shield,
-  Sparkles,
+  ArrowRight,
+  ArrowUpDown,
+  History,
+  Info,
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 
 interface TimelineProps {
-  currentStatus: RequestStatus;
+  currentStatus: RequestStatus | string;
   history?: RequestStatusHistory[];
   compact?: boolean;
+  createdAt?: string;
+  requesterName?: string;
+  requesterRole?: string;
+  requestNumber?: string;
 }
 
 const WORKFLOW_STEPS: Array<{ key: RequestStatus; label: string }> = [
@@ -29,14 +37,20 @@ const WORKFLOW_STEPS: Array<{ key: RequestStatus; label: string }> = [
   { key: 'APPROVED', label: 'Approved' },
   { key: 'PROCESSING', label: 'Processing' },
   { key: 'READY_FOR_RELEASE', label: 'Ready to Claim' },
-  { key: 'RELEASED', label: 'Released' },
+  { key: 'RELEASED', label: 'Completed' },
 ];
 
 export const Timeline: React.FC<TimelineProps> = ({
   currentStatus,
   history = [],
   compact = false,
+  createdAt,
+  requesterName,
+  requesterRole = 'STUDENT',
+  requestNumber,
 }) => {
+  const [sortAscending, setSortAscending] = useState(false); // Default: newest first for quick status check
+
   const isRejected = currentStatus === 'REJECTED';
   const isCancelled = currentStatus === 'CANCELLED';
   const isNeedsInfo = currentStatus === 'NEEDS_INFORMATION';
@@ -49,6 +63,34 @@ export const Timeline: React.FC<TimelineProps> = ({
   };
 
   const currentIndex = getCurrentStepIndex();
+
+  // Normalize history list or synthesize initial creation event if empty
+  const rawHistoryList: RequestStatusHistory[] =
+    history && history.length > 0
+      ? [...history]
+      : [
+          {
+            id: 'init-submit',
+            request_id: requestNumber || 'req-init',
+            previous_status: undefined,
+            new_status: (currentStatus as RequestStatus) || 'SUBMITTED',
+            changed_by: requesterName || 'Student Requester',
+            comment: 'Official document request submitted via online portal and queued for evaluation.',
+            created_at: createdAt || new Date().toISOString(),
+            changed_by_user: {
+              full_name: requesterName || 'Student Requester',
+              role: requesterRole as any,
+              email: '',
+            },
+          },
+        ];
+
+  // Sort history: ascending (oldest first) or descending (newest first)
+  const sortedHistory = [...rawHistoryList].sort((a, b) => {
+    const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+    return sortAscending ? timeA - timeB : timeB - timeA;
+  });
 
   return (
     <div className="space-y-5">
@@ -78,7 +120,7 @@ export const Timeline: React.FC<TimelineProps> = ({
           >
             <XCircle className="w-4 h-4 mr-2.5 text-rose-600 shrink-0" />
             <div>
-              <span className="font-bold">Request Rejected:</span> This request was reviewed and rejected. Please review official registrar remarks below.
+              <span className="font-bold">Request Rejected:</span> This request was reviewed and rejected. Please review official registrar remarks in the audit log below.
             </div>
           </motion.div>
         ) : isCancelled ? (
@@ -100,7 +142,7 @@ export const Timeline: React.FC<TimelineProps> = ({
           >
             <HelpCircle className="w-4 h-4 mr-2.5 text-amber-700 shrink-0" />
             <div>
-              <span className="font-bold">Action Required:</span> Additional documentation or clarification was requested by the registrar.
+              <span className="font-bold">Action Required:</span> Additional documentation or clearance clarification was requested by the registrar.
             </div>
           </motion.div>
         ) : (
@@ -113,7 +155,7 @@ export const Timeline: React.FC<TimelineProps> = ({
 
                   return (
                     <div key={step.key} className="flex-1 flex flex-col items-center relative">
-                      {/* Connecting Line with Drawing Animation */}
+                      {/* Connecting Line with Animation */}
                       {idx !== 0 && (
                         <div className="absolute top-4 -left-1/2 w-full h-1 -translate-y-1/2 z-0 bg-slate-100 rounded-full overflow-hidden">
                           <motion.div
@@ -139,7 +181,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                           initial={{ scale: 0.8 }}
                           animate={{ scale: 1 }}
                           transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-                          className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all shadow-sm ${
+                          className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all shadow-xs ${
                             isCompleted
                               ? 'bg-blue-700 text-white'
                               : isCurrent
@@ -184,27 +226,87 @@ export const Timeline: React.FC<TimelineProps> = ({
         )}
       </div>
 
-      {/* 2. Chronological Audit Log */}
-      {!compact && history && history.length > 0 && (
+      {/* 2. Official Audit History & Status Change Trail */}
+      {!compact && (
         <div className="p-5 bg-white rounded-xl border border-slate-200 shadow-2xs">
-          <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-4 pb-2 border-b border-slate-100 flex items-center gap-2">
-            <Shield className="w-3.5 h-3.5 text-slate-500" />
-            Official Audit Trail & Activity Log ({history.length})
-          </h4>
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-4 pb-3 border-b border-slate-100">
+            <div className="flex items-center gap-2">
+              <Shield className="w-4 h-4 text-blue-700" />
+              <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                Status Audit History ({sortedHistory.length})
+              </h4>
+              <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-semibold">
+                Official Records
+              </span>
+            </div>
+
+            {/* Sort Order Toggle */}
+            <button
+              type="button"
+              onClick={() => setSortAscending(!sortAscending)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs text-slate-600 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors font-medium"
+              title="Toggle timeline order"
+            >
+              <ArrowUpDown className="w-3 h-3 text-slate-500" />
+              <span>{sortAscending ? 'Oldest First' : 'Newest First'}</span>
+            </button>
+          </div>
 
           <div className="relative pl-5 space-y-4 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-px before:bg-slate-200">
-            {history.map((item, idx) => {
-              const dateStr = item.created_at
-                ? format(new Date(item.created_at), 'MMM dd, yyyy • h:mm a')
-                : 'Pending';
+            {sortedHistory.map((item, idx) => {
+              let exactDate = 'Pending';
+              let relativeDate = '';
+              if (item.created_at) {
+                try {
+                  const d = new Date(item.created_at);
+                  exactDate = format(d, 'MMM dd, yyyy • h:mm a');
+                  relativeDate = formatDistanceToNow(d, { addSuffix: true });
+                } catch {
+                  exactDate = item.created_at;
+                }
+              }
 
-              const getIcon = (st: RequestStatus) => {
+              // Determine actor info
+              const actorName =
+                item.changed_by_user?.full_name ||
+                (typeof item.changed_by === 'string' && item.changed_by.includes('staff')
+                  ? 'Registrar Staff'
+                  : typeof item.changed_by === 'string' && item.changed_by.includes('admin')
+                  ? 'Administrator'
+                  : typeof item.changed_by === 'string' && item.changed_by.includes('student')
+                  ? 'Student Requester'
+                  : 'Authorized Officer');
+
+              const actorRole =
+                item.changed_by_user?.role ||
+                (typeof item.changed_by === 'string' && item.changed_by.includes('admin')
+                  ? 'ADMIN'
+                  : typeof item.changed_by === 'string' && item.changed_by.includes('student')
+                  ? 'STUDENT'
+                  : 'STAFF');
+
+              const getRoleStyle = (role: string) => {
+                switch (role) {
+                  case 'ADMIN':
+                    return 'bg-purple-50 text-purple-700 border-purple-200';
+                  case 'STAFF':
+                    return 'bg-blue-50 text-blue-700 border-blue-200';
+                  case 'STUDENT':
+                    return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                  default:
+                    return 'bg-slate-100 text-slate-700 border-slate-200';
+                }
+              };
+
+              const getIcon = (st: RequestStatus | string) => {
                 switch (st) {
                   case 'SUBMITTED':
+                  case 'PENDING':
                     return <Send className="w-3 h-3 text-blue-600" />;
                   case 'APPROVED':
                   case 'READY_FOR_RELEASE':
                   case 'RELEASED':
+                  case 'COMPLETED':
                     return <CheckCircle2 className="w-3 h-3 text-emerald-600" />;
                   case 'REJECTED':
                   case 'CANCELLED':
@@ -221,39 +323,88 @@ export const Timeline: React.FC<TimelineProps> = ({
                   key={item.id || idx}
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.35, delay: idx * 0.07 }}
+                  transition={{ duration: 0.35, delay: idx * 0.05 }}
                   className="relative group"
                 >
-                  {/* Dot */}
-                  <div className="absolute -left-[25px] top-1 w-4.5 h-4.5 rounded-full bg-white border border-slate-300 flex items-center justify-center shadow-2xs group-hover:border-blue-500 transition-colors">
+                  {/* Timeline Node Dot */}
+                  <div className="absolute -left-[25px] top-1.5 w-5 h-5 rounded-full bg-white border border-slate-300 flex items-center justify-center shadow-xs group-hover:border-blue-500 transition-colors">
                     {getIcon(item.new_status)}
                   </div>
 
-                  <div className="bg-slate-50/70 p-3.5 rounded-lg border border-slate-200 hover:border-slate-300 transition-colors">
-                    <div className="flex flex-wrap items-center justify-between gap-1 mb-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-slate-900">
-                          {item.new_status.replace(/_/g, ' ')}
-                        </span>
-                        {item.changed_by_user && (
-                          <span className="inline-flex items-center text-[10px] text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200">
-                            <User className="w-2.5 h-2.5 mr-1 text-slate-400" />
-                            {item.changed_by_user.full_name} ({item.changed_by_user.role})
-                          </span>
+                  <div className="bg-slate-50/80 p-4 rounded-xl border border-slate-200 hover:border-slate-300 transition-all space-y-2.5">
+                    {/* Top Row: Color-Coded Status Badge Transition + Timestamp */}
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {item.previous_status ? (
+                          <>
+                            <StatusBadge status={item.previous_status} size="xs" />
+                            <ArrowRight className="w-3 h-3 text-slate-400" />
+                            <StatusBadge status={item.new_status} size="sm" />
+                          </>
+                        ) : (
+                          <StatusBadge status={item.new_status} size="sm" />
                         )}
                       </div>
-                      <time className="text-[11px] text-slate-400 font-mono">{dateStr}</time>
+
+                      <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-mono">
+                        <Clock className="w-3 h-3 text-slate-400" />
+                        <span title={exactDate}>{exactDate}</span>
+                        {relativeDate && (
+                          <span className="text-slate-400 font-sans">({relativeDate})</span>
+                        )}
+                      </div>
                     </div>
 
+                    {/* Middle Row: Actor Profile (Who changed it) */}
+                    <div className="flex items-center justify-between gap-2 p-2 bg-white rounded-lg border border-slate-100 text-xs">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-[10px] border border-slate-200">
+                          {actorName[0]?.toUpperCase() || 'U'}
+                        </div>
+                        <div>
+                          <span className="font-semibold text-slate-900 block leading-tight">
+                            {actorName}
+                          </span>
+                          {item.changed_by_user?.email && (
+                            <span className="text-[10px] text-slate-400 leading-none">
+                              {item.changed_by_user.email}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <span
+                        className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${getRoleStyle(
+                          actorRole
+                        )}`}
+                      >
+                        {actorRole === 'STAFF'
+                          ? 'Registrar Officer'
+                          : actorRole === 'ADMIN'
+                          ? 'Administrator'
+                          : actorRole === 'STUDENT'
+                          ? 'Requester'
+                          : actorRole}
+                      </span>
+                    </div>
+
+                    {/* Bottom Row: Reason or Comments if any */}
                     {item.reason && (
-                      <div className="mt-1.5 text-xs text-rose-800 bg-rose-50 p-2 rounded border border-rose-200">
-                        <strong className="font-semibold">Reason:</strong> {item.reason}
+                      <div className="text-xs text-rose-900 bg-rose-50/90 p-2.5 rounded-lg border border-rose-200 space-y-1">
+                        <span className="font-bold uppercase tracking-wider text-[10px] text-rose-700 block">
+                          Official Decision Reason
+                        </span>
+                        <p className="leading-relaxed">{item.reason}</p>
                       </div>
                     )}
 
                     {item.comment && (
-                      <div className="mt-1.5 text-xs text-slate-700 bg-white p-2 rounded border border-slate-200">
-                        {item.comment}
+                      <div className="text-xs text-slate-700 bg-white p-2.5 rounded-lg border border-slate-200 space-y-1">
+                        <span className="font-semibold uppercase tracking-wider text-[10px] text-slate-400 block flex items-center gap-1">
+                          <Info className="w-3 h-3 text-slate-400" />
+                          Remarks & Notes
+                        </span>
+                        <p className="leading-relaxed">{item.comment}</p>
                       </div>
                     )}
                   </div>

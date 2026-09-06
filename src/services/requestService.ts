@@ -205,10 +205,22 @@ export const requestService = {
       }
 
       const fetched = await this.getRequestById(newRequestId!);
-      return fetched || (mockStore.getRequestById(newRequestId!) as DocumentRequest);
+      const finalReq = fetched || (mockStore.getRequestById(newRequestId!) as DocumentRequest);
+
+      // Trigger initial submission confirmation email alert via Edge Function
+      try {
+        await emailService.sendSingleStatusEmailNotification(finalReq, 'SUBMITTED', {
+          senderName: 'Registrar Intake System',
+          comment: 'Document request officially logged into intake queue.',
+        });
+      } catch (emailErr) {
+        console.warn('Initial intake confirmation email notification failed:', emailErr);
+      }
+
+      return finalReq;
     } catch (e) {
       console.warn('Supabase submitRequest fallback to mock store:', e);
-      return mockStore.createRequest({
+      const created = mockStore.createRequest({
         student_id: payload.student_id || payload.studentId || 'stud-prof-001',
         document_type_id: docTypeId,
         quantity: payload.quantity,
@@ -219,6 +231,18 @@ export const requestService = {
         fee: payload.fee,
         files: payload.files,
       });
+
+      // Trigger initial submission confirmation email alert via Edge Function
+      try {
+        await emailService.sendSingleStatusEmailNotification(created, 'SUBMITTED', {
+          senderName: 'Registrar Intake System',
+          comment: 'Document request officially logged into intake queue.',
+        });
+      } catch (emailErr) {
+        console.warn('Initial intake confirmation email notification failed:', emailErr);
+      }
+
+      return created;
     }
   },
 
@@ -692,7 +716,7 @@ export const requestService = {
    * Student cancel pending request
    */
   async cancelRequest(requestId: string, reason: string): Promise<void> {
-    mockStore.updateRequestStatus({
+    await this.updateRequestStatus({
       requestId,
       newStatus: 'CANCELLED',
       reason,
@@ -708,7 +732,7 @@ export const requestService = {
     responseNote: string,
     files?: File[]
   ): Promise<void> {
-    mockStore.updateRequestStatus({
+    await this.updateRequestStatus({
       requestId,
       newStatus: 'UNDER_REVIEW',
       comment: responseNote,

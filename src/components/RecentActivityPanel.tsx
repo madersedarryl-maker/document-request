@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { auditService } from '../services/auditService';
 import { AuditLog } from '../types';
 import { Button } from '../components/Button';
+import { StatusBadge } from './StatusBadge';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Activity,
@@ -496,15 +497,11 @@ export const RecentActivityPanel: React.FC<RecentActivityPanelProps> = ({
                             <div className="space-y-1.5 text-[11px]">
                               {/* Status Transition Diff */}
                               {(log.details.from || log.details.to || log.details.previous_status || log.details.new_status) && (
-                                <div className="flex items-center gap-1.5 flex-wrap bg-amber-50/70 text-amber-950 p-2 rounded border border-amber-200/80">
-                                  <span className="font-semibold text-amber-900">Transition:</span>
-                                  <span className="font-mono bg-white px-1.5 py-0.5 rounded border border-amber-300 font-bold text-[10px]">
-                                    {log.details.from || log.details.previous_status || 'INITIAL'}
-                                  </span>
-                                  <ArrowRight className="w-3 h-3 text-amber-700" />
-                                  <span className="font-mono bg-amber-200/80 text-amber-900 px-1.5 py-0.5 rounded border border-amber-400 font-bold text-[10px]">
-                                    {log.details.to || log.details.new_status}
-                                  </span>
+                                <div className="flex items-center gap-1.5 flex-wrap bg-slate-50 text-slate-800 p-2 rounded-lg border border-slate-200">
+                                  <span className="font-semibold text-slate-500 text-[10px] uppercase tracking-wider">Transition:</span>
+                                  <StatusBadge status={String(log.details.from || log.details.previous_status || 'SUBMITTED')} size="xs" />
+                                  <ArrowRight className="w-3 h-3 text-slate-400" />
+                                  <StatusBadge status={String(log.details.to || log.details.new_status || 'PROCESSING')} size="xs" />
                                 </div>
                               )}
 

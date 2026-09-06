@@ -14,12 +14,30 @@ import {
 } from 'lucide-react';
 
 interface StatusBadgeProps {
-  status: RequestStatus;
-  size?: 'sm' | 'md' | 'lg';
+  status: RequestStatus | string;
+  size?: 'xs' | 'sm' | 'md' | 'lg';
   showIcon?: boolean;
   showDot?: boolean;
   className?: string;
 }
+
+const normalizeStatusKey = (st: string): string => {
+  if (!st) return 'SUBMITTED';
+  const clean = st.trim().toUpperCase().replace(/[\s-]+/g, '_');
+  if (clean === 'PENDING' || clean === 'WAITING') return 'PENDING';
+  if (clean === 'PROCESSING' || clean === 'IN_PROGRESS' || clean === 'PRINTING') return 'PROCESSING';
+  if (clean === 'COMPLETED' || clean === 'COMPLETE' || clean === 'FINISHED') return 'COMPLETED';
+  if (clean === 'RELEASED') return 'RELEASED';
+  if (clean === 'READY' || clean === 'READY_FOR_PICKUP') return 'READY_FOR_RELEASE';
+  if (clean === 'SUBMITTED') return 'SUBMITTED';
+  if (clean === 'UNDER_REVIEW' || clean === 'REVIEWING') return 'UNDER_REVIEW';
+  if (clean === 'FOR_APPROVAL' || clean === 'PENDING_APPROVAL') return 'FOR_APPROVAL';
+  if (clean === 'APPROVED') return 'APPROVED';
+  if (clean === 'REJECTED' || clean === 'DENIED') return 'REJECTED';
+  if (clean === 'CANCELLED' || clean === 'CANCELED') return 'CANCELLED';
+  if (clean === 'NEEDS_INFORMATION' || clean === 'ACTION_REQUIRED' || clean === 'NEEDS_INFO') return 'NEEDS_INFORMATION';
+  return clean;
+};
 
 export const StatusBadge: React.FC<StatusBadgeProps> = ({
   status,
@@ -28,8 +46,9 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
   showDot = false,
   className = '',
 }) => {
-  const config = STATUS_CONFIG[status] || {
-    label: status,
+  const normalized = normalizeStatusKey(String(status));
+  const config = STATUS_CONFIG[normalized] || {
+    label: String(status).replace(/_/g, ' '),
     badgeBg: 'bg-slate-50 text-slate-700',
     badgeText: 'text-slate-700 font-medium',
     badgeBorder: 'border-slate-200',
@@ -39,22 +58,36 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
   };
 
   const renderIcon = () => {
-    const iconClass = size === 'sm' ? 'w-3 h-3 mr-1 shrink-0' : 'w-3.5 h-3.5 mr-1.5 shrink-0';
-    switch (status) {
+    const iconClass =
+      size === 'xs'
+        ? 'w-2.5 h-2.5 mr-1 shrink-0'
+        : size === 'sm'
+        ? 'w-3 h-3 mr-1 shrink-0'
+        : 'w-3.5 h-3.5 mr-1.5 shrink-0';
+
+    switch (normalized) {
+      case 'PENDING':
+        return <Clock className={`${iconClass} text-amber-600`} />;
       case 'SUBMITTED':
         return <Send className={`${iconClass} text-blue-600`} />;
       case 'UNDER_REVIEW':
-        return <Clock className={`${iconClass} text-amber-600`} />;
+        return <Clock className={`${iconClass} text-indigo-600`} />;
       case 'FOR_APPROVAL':
-        return <FileCheck className={`${iconClass} text-indigo-600`} />;
+        return <FileCheck className={`${iconClass} text-purple-600`} />;
       case 'APPROVED':
-        return <CheckCircle2 className={`${iconClass} text-emerald-600`} />;
+        return <CheckCircle2 className={`${iconClass} text-teal-600`} />;
       case 'PROCESSING':
-        return <Package className={`${iconClass} text-cyan-600 animate-bounce`} style={{ animationDuration: '2s' }} />;
+        return (
+          <Package
+            className={`${iconClass} text-sky-600 animate-pulse`}
+            style={{ animationDuration: '1.8s' }}
+          />
+        );
       case 'READY_FOR_RELEASE':
         return <CheckCircle2 className={`${iconClass} text-emerald-700`} strokeWidth={2.5} />;
       case 'RELEASED':
-        return <CheckCircle2 className={`${iconClass} text-teal-600`} />;
+      case 'COMPLETED':
+        return <CheckCircle2 className={`${iconClass} text-emerald-600`} strokeWidth={2.2} />;
       case 'REJECTED':
         return <XCircle className={`${iconClass} text-rose-600`} />;
       case 'CANCELLED':
@@ -67,15 +100,17 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
   };
 
   const sizeClasses =
-    size === 'sm'
-      ? 'text-[11px] px-2.5 py-0.5'
+    size === 'xs'
+      ? 'text-[10px] px-2 py-0.5 leading-tight font-medium'
+      : size === 'sm'
+      ? 'text-[11px] px-2.5 py-0.5 leading-tight font-semibold'
       : size === 'lg'
-      ? 'text-xs px-3.5 py-1.5'
-      : 'text-xs px-3 py-1';
+      ? 'text-xs px-3.5 py-1.5 leading-tight font-bold shadow-xs'
+      : 'text-xs px-3 py-1 leading-tight font-semibold';
 
   return (
     <span
-      className={`inline-flex items-center rounded-full border whitespace-nowrap tracking-tight transition-all ${config.badgeBg} ${config.badgeText} ${config.badgeBorder} ${sizeClasses} ${className}`}
+      className={`inline-flex items-center rounded-full border whitespace-nowrap tracking-tight transition-colors ${config.badgeBg} ${config.badgeText} ${config.badgeBorder} ${sizeClasses} ${className}`}
     >
       {showDot && (
         <span

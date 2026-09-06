@@ -6,6 +6,7 @@ import { storageService } from '../../services/storageService';
 import { DocumentRequest } from '../../types';
 import { StatusBadge, PaymentBadge, PriorityBadge } from '../../components/StatusBadge';
 import { Timeline } from '../../components/Timeline';
+import { EmailAlertsHistory } from '../../components/EmailAlertsHistory';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { FileUploader } from '../../components/FileUploader';
 import { RequestDetailSkeleton } from '../../components/Skeletons';
@@ -424,10 +425,25 @@ export const RequestDetail: React.FC = () => {
       {/* 3. Student Requirement Verification & Submissions */}
       <StudentRequirementSubmission request={request} onSubmitted={fetchRequestDetails} />
 
-      {/* 4. Lifecycle Workflow Timeline */}
-      <Timeline currentStatus={request.status} history={request.status_history} />
+      {/* 4. Lifecycle Workflow Timeline & Status History */}
+      <Timeline
+        currentStatus={request.status}
+        history={request.status_history}
+        createdAt={request.created_at}
+        requesterName={user?.full_name || 'Student Requester'}
+        requesterRole="STUDENT"
+        requestNumber={request.request_number}
+      />
 
-      {/* 4. Cancellation Confirmation Dialog */}
+      {/* 5. Automated Email Alerts (Supabase Edge Functions) */}
+      <EmailAlertsHistory
+        requestId={request.id}
+        requestNumber={request.request_number}
+        recipientEmail={user?.email || request.student?.user?.email}
+        isStaff={false}
+      />
+
+      {/* 6. Cancellation Confirmation Dialog */}
       <ConfirmDialog
         isOpen={isCancelModalOpen}
         onClose={() => setIsCancelModalOpen(false)}

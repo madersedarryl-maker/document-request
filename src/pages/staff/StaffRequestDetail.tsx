@@ -34,9 +34,16 @@ import {
   Clock,
   Shield,
   FileCheck,
+  Mail,
+  Send,
+  X,
+  Printer,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { DocumentReviewWorkspace } from '../../components/DocumentReviewWorkspace';
+import { EmailAlertsHistory } from '../../components/EmailAlertsHistory';
+import { PrintPreviewModal } from '../../components/PrintPreviewModal';
+import { emailService } from '../../services/emailService';
 
 export const StaffRequestDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -53,12 +60,22 @@ export const StaffRequestDetail: React.FC = () => {
     'REJECT' | 'NEEDS_INFO' | 'RELEASE' | 'APPROVE' | null
   >(null);
 
+  // Custom Email Modal State
+  const [isCustomEmailModalOpen, setIsCustomEmailModalOpen] = useState(false);
+  const [customEmailStatus, setCustomEmailStatus] = useState<RequestStatus>('UNDER_REVIEW');
+  const [customEmailSubject, setCustomEmailSubject] = useState('');
+  const [customEmailBody, setCustomEmailBody] = useState('');
+  const [sendingCustomEmail, setSendingCustomEmail] = useState(false);
+
+  // Print Preview Modal State
+  const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
+
   // Internal Notes State
   const [newNote, setNewNote] = useState('');
   const [submittingNote, setSubmittingNote] = useState(false);
 
   // Tab State
-  const [activeTab, setActiveTab] = useState<'VERIFICATION' | 'OVERVIEW' | 'TIMELINE'>('VERIFICATION');
+  const [activeTab, setActiveTab] = useState<'VERIFICATION' | 'OVERVIEW' | 'TIMELINE' | 'EMAILS'>('VERIFICATION');
 
   // Attachment signed URLs map
   const [downloadUrls, setDownloadUrls] = useState<Record<string, string>>({});
@@ -162,6 +179,35 @@ export const StaffRequestDetail: React.FC = () => {
     }
   };
 
+  // Dispatch Custom Status Email via Supabase Edge Function
+  const handleSendCustomEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!request) return;
+    setSendingCustomEmail(true);
+    try {
+      await emailService.sendSingleStatusEmailNotification(
+        request,
+        customEmailStatus,
+        {
+          customSubject: customEmailSubject.trim() || undefined,
+          customBody: customEmailBody.trim() || undefined,
+          senderId: user?.id,
+          senderName: profile?.full_name || 'Registrar Evaluation Officer',
+        }
+      );
+      setIsCustomEmailModalOpen(false);
+      setCustomEmailSubject('');
+      setCustomEmailBody('');
+      alert('Automated status update email alert successfully triggered via Supabase Edge Function!');
+      await fetchDetails();
+    } catch (err: any) {
+      console.error('Custom email dispatch error:', err);
+      alert(err.message || 'Failed to send automated status email.');
+    } finally {
+      setSendingCustomEmail(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -240,6 +286,16 @@ export const StaffRequestDetail: React.FC = () => {
             >
               Refresh
             </Button>
+
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={Printer}
+              onClick={() => setIsPrintPreviewOpen(true)}
+              title="Print Preview: Official Routing & Clearance Slip"
+            >
+              Print Routing Slip
+            </Button>
           </div>
         }
       />
@@ -286,6 +342,21 @@ export const StaffRequestDetail: React.FC = () => {
           <Clock className="w-4 h-4" />
           <span>Timeline & Audit Logs</span>
         </button>
+
+        <button
+          onClick={() => setActiveTab('EMAILS')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-colors ${
+            activeTab === 'EMAILS'
+              ? 'border-indigo-600 text-indigo-700 bg-indigo-50/50 rounded-t-lg'
+              : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-t-lg'
+          }`}
+        >
+          <Mail className="w-4 h-4" />
+          <span>Automated Email Alerts</span>
+          <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800">
+            Edge
+          </span>
+        </button>
       </div>
 
       {/* Tab 1: Primary Document Clearance & Verification Workspace */}
@@ -305,9 +376,10 @@ export const StaffRequestDetail: React.FC = () => {
                   <CheckCircle2 className="w-4 h-4 text-blue-700" />
                   Registrar Workflow Actions
                 </h2>
-                <span className="text-xs text-slate-500 font-mono">
-                  Status: <strong>{request.status.replace(/_/g, ' ')}</strong>
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-400">Current Status:</span>
+                  <StatusBadge status={request.status} size="sm" />
+                </div>
               </div>
 
               {/* Action Buttons */}
@@ -625,11 +697,55 @@ export const StaffRequestDetail: React.FC = () => {
                   </div>
                 )}
               </div>
+
+              {/* Status Audit History & Lifecycle Progression */}
+              <Timeline
+                currentStatus={request.status}
+                history={request.status_history}
+                createdAt={request.created_at}
+                requesterName={request.student?.user?.full_name || 'Student Requester'}
+                requesterRole="STUDENT"
+                requestNumber={request.request_number}
+              />
             </>
           )}
 
           {activeTab === 'TIMELINE' && (
-            <Timeline currentStatus={request.status} history={request.status_history} />
+            <div className="space-y-6">
+              <Timeline
+                currentStatus={request.status}
+                history={request.status_history}
+                createdAt={request.created_at}
+                requesterName={request.student?.user?.full_name || 'Student Requester'}
+                requesterRole="STUDENT"
+                requestNumber={request.request_number}
+              />
+              <EmailAlertsHistory
+                requestId={request.id}
+                requestNumber={request.request_number}
+                recipientEmail={request.student?.user?.email}
+                isStaff={true}
+                onSendCustomNotification={() => {
+                  setCustomEmailStatus(request.status);
+                  setIsCustomEmailModalOpen(true);
+                }}
+              />
+            </div>
+          )}
+
+          {activeTab === 'EMAILS' && (
+            <div className="space-y-6">
+              <EmailAlertsHistory
+                requestId={request.id}
+                requestNumber={request.request_number}
+                recipientEmail={request.student?.user?.email}
+                isStaff={true}
+                onSendCustomNotification={() => {
+                  setCustomEmailStatus(request.status);
+                  setIsCustomEmailModalOpen(true);
+                }}
+              />
+            </div>
           )}
         </div>
 
@@ -721,6 +837,117 @@ export const StaffRequestDetail: React.FC = () => {
         confirmText="Confirm Release"
         type="success"
         loading={actionLoading}
+      />
+
+      {/* Manual / Custom Status Email Dispatch Modal */}
+      {isCustomEmailModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden">
+            <div className="p-4 sm:p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-blue-100 text-blue-800">
+                  <Mail className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900">Send Status Email Notification</h4>
+                  <p className="text-xs text-slate-500">
+                    Dispatched via Supabase Edge Function <code className="font-mono text-slate-700">send-status-email</code>
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCustomEmailModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSendCustomEmail} className="p-5 space-y-4 text-xs">
+              <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-lg space-y-1">
+                <span className="font-bold text-blue-900 block">Recipient Student:</span>
+                <p className="text-blue-800">
+                  {request.student?.user?.full_name} ({request.student?.student_id}) &bull;{' '}
+                  <span className="font-mono">{request.student?.user?.email}</span>
+                </p>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Trigger for Status Template:
+                </label>
+                <select
+                  value={customEmailStatus}
+                  onChange={(e) => setCustomEmailStatus(e.target.value as RequestStatus)}
+                  className="w-full p-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-600 font-semibold"
+                >
+                  <option value="UNDER_REVIEW">UNDER REVIEW (Clearance Evaluation)</option>
+                  <option value="FOR_APPROVAL">FOR APPROVAL (Dean / Sign-off)</option>
+                  <option value="APPROVED">APPROVED (Queued for Printing)</option>
+                  <option value="PROCESSING">PROCESSING (Production & Embossing)</option>
+                  <option value="READY_FOR_RELEASE">READY FOR RELEASE (Ready for Claiming)</option>
+                  <option value="RELEASED">RELEASED (Officially Issued)</option>
+                  <option value="NEEDS_INFORMATION">NEEDS INFORMATION (Resubmission)</option>
+                  <option value="REJECTED">REJECTED (Disapproved)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Custom Subject Line (Optional - overrides standard template):
+                </label>
+                <input
+                  type="text"
+                  placeholder={`[iBACMI Registrar] Update on request ${request.request_number}`}
+                  value={customEmailSubject}
+                  onChange={(e) => setCustomEmailSubject(e.target.value)}
+                  className="w-full p-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-600"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Custom Remarks / Next Steps (Optional):
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Provide additional instructions, specific claiming hours, or requirement notes to include in the notification..."
+                  value={customEmailBody}
+                  onChange={(e) => setCustomEmailBody(e.target.value)}
+                  className="w-full p-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-600"
+                />
+              </div>
+
+              <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsCustomEmailModalOpen(false)}
+                  className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-semibold"
+                >
+                  Cancel
+                </button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  loading={sendingCustomEmail}
+                  disabled={sendingCustomEmail}
+                  icon={Send}
+                >
+                  Dispatch Email Notification
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Print Preview Modal for Official Document Routing & Clearance Slip */}
+      <PrintPreviewModal
+        isOpen={isPrintPreviewOpen}
+        onClose={() => setIsPrintPreviewOpen(false)}
+        singleRequest={request}
+        initialMode="document"
       />
     </div>
   );

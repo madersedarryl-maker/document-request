@@ -20,6 +20,8 @@ interface QueueEmptyStateProps {
   docTypeFilter?: string;
   paymentFilter?: string;
   overdueFilter?: boolean;
+  dateFrom?: string;
+  dateTo?: string;
   onClearSearch?: () => void;
   onResetAllFilters?: () => void;
   onRefresh?: () => void;
@@ -28,6 +30,7 @@ interface QueueEmptyStateProps {
   onClearDocTypeFilter?: () => void;
   onClearPaymentFilter?: () => void;
   onClearOverdueFilter?: () => void;
+  onClearDateFilter?: () => void;
   className?: string;
   id?: string;
 }
@@ -39,6 +42,8 @@ export const QueueEmptyState: React.FC<QueueEmptyStateProps> = ({
   docTypeFilter = 'ALL',
   paymentFilter = 'ALL',
   overdueFilter = false,
+  dateFrom = '',
+  dateTo = '',
   onClearSearch,
   onResetAllFilters,
   onRefresh,
@@ -47,6 +52,7 @@ export const QueueEmptyState: React.FC<QueueEmptyStateProps> = ({
   onClearDocTypeFilter,
   onClearPaymentFilter,
   onClearOverdueFilter,
+  onClearDateFilter,
   className = '',
   id = 'queue-empty-state',
 }) => {
@@ -56,7 +62,9 @@ export const QueueEmptyState: React.FC<QueueEmptyStateProps> = ({
     priorityFilter !== 'ALL' ||
     docTypeFilter !== 'ALL' ||
     paymentFilter !== 'ALL' ||
-    overdueFilter;
+    overdueFilter ||
+    Boolean(dateFrom) ||
+    Boolean(dateTo);
   const hasAnyActive = isSearchActive || hasFilterActive;
 
   return (
@@ -212,6 +220,22 @@ export const QueueEmptyState: React.FC<QueueEmptyStateProps> = ({
                   onClick={onClearOverdueFilter}
                   title="Remove overdue SLA filter"
                   className="hover:bg-amber-200 rounded p-0.5 ml-0.5 cursor-pointer text-amber-900 transition-colors"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </span>
+          )}
+
+          {(dateFrom || dateTo) && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-medium">
+              Date: <strong>{dateFrom && dateTo ? `${dateFrom} to ${dateTo}` : (dateFrom ? `From ${dateFrom}` : `Until ${dateTo}`)}</strong>
+              {onClearDateFilter && (
+                <button
+                  type="button"
+                  onClick={onClearDateFilter}
+                  title="Remove date range filter"
+                  className="hover:bg-emerald-200/60 rounded p-0.5 ml-0.5 cursor-pointer text-emerald-700 transition-colors"
                 >
                   <X className="w-3 h-3" />
                 </button>
