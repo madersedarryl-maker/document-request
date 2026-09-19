@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { NotificationBell } from '../NotificationBell';
-import { DatabaseSetupModal } from '../DatabaseSetupModal';
 import { ProfileModal } from '../ProfileModal';
 import { StudentPortalSidebar } from './StudentPortalSidebar';
 import { Menu, PanelLeftClose, PanelLeftOpen, Globe } from 'lucide-react';
@@ -28,7 +27,6 @@ export const StudentPortalLayout: React.FC<StudentPortalLayoutProps> = ({ childr
     localStorage.getItem('ibacmi_student_sidebar_collapsed') === 'true'
   );
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const [isDbModalOpen, setIsDbModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   useEffect(() => {
@@ -53,7 +51,6 @@ export const StudentPortalLayout: React.FC<StudentPortalLayoutProps> = ({ childr
         isMobileOpen={isMobileOpen}
         onCloseMobile={() => setIsMobileOpen(false)}
         onOpenProfileModal={() => setIsProfileModalOpen(true)}
-        onOpenDbModal={() => setIsDbModalOpen(true)}
       />
 
       <div className={`min-h-screen transition-[padding] duration-300 ${isCollapsed ? 'md:pl-[72px]' : 'md:pl-64'}`}>
@@ -105,7 +102,6 @@ export const StudentPortalLayout: React.FC<StudentPortalLayoutProps> = ({ childr
         <main className="min-w-0 pb-10">{children}</main>
       </div>
 
-      <DatabaseSetupModal isOpen={isDbModalOpen} onClose={() => setIsDbModalOpen(false)} />
       <ProfileModal isOpen={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} />
     </div>
   );

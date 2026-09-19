@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { NotificationBell } from './NotificationBell';
-import { DatabaseSetupModal } from './DatabaseSetupModal';
 import { ProfileModal } from './ProfileModal';
 import { TopBar } from './ibacmi/TopBar';
 import { IbacmiLogo } from './ibacmi/IbacmiLogo';
@@ -16,7 +15,6 @@ import {
   ShieldCheck,
   LogOut,
   User,
-  Database,
   Menu,
   X,
   GraduationCap,
@@ -36,7 +34,6 @@ export const Navbar: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const [isDbModalOpen, setIsDbModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showRoleSwitcher, setShowRoleSwitcher] = useState(false);
@@ -552,16 +549,6 @@ export const Navbar: React.FC = () => {
                             </>
                           )}
 
-                          <button
-                            onClick={() => {
-                              setShowUserMenu(false);
-                              setIsDbModalOpen(true);
-                            }}
-                            className="w-full px-4 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 cursor-pointer"
-                          >
-                            <Database className="w-3.5 h-3.5 text-slate-400" />
-                            <span>Database Setup & Health</span>
-                          </button>
                         </div>
 
                         <div className="pt-1 border-t border-slate-100">
@@ -731,7 +718,6 @@ export const Navbar: React.FC = () => {
       </header>
 
       {/* Modals */}
-      <DatabaseSetupModal isOpen={isDbModalOpen} onClose={() => setIsDbModalOpen(false)} />
       <ProfileModal isOpen={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} />
     </>
   );

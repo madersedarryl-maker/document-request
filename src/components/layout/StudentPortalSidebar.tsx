@@ -11,7 +11,6 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   UserCog,
-  Database,
   LogOut,
   Globe,
   X,
@@ -23,7 +22,6 @@ interface StudentPortalSidebarProps {
   isMobileOpen: boolean;
   onCloseMobile: () => void;
   onOpenProfileModal: () => void;
-  onOpenDbModal: () => void;
 }
 
 const navItems = [
@@ -40,7 +38,6 @@ export const StudentPortalSidebar: React.FC<StudentPortalSidebarProps> = ({
   isMobileOpen,
   onCloseMobile,
   onOpenProfileModal,
-  onOpenDbModal,
 }) => {
   const { user, profile, signOut } = useAuth();
   const location = useLocation();
@@ -156,15 +153,6 @@ export const StudentPortalSidebar: React.FC<StudentPortalSidebarProps> = ({
               aria-label="Profile settings"
             >
               <UserCog className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={onOpenDbModal}
-              className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
-              title="Database health"
-              aria-label="Database health"
-            >
-              <Database className="h-4 w-4" />
             </button>
             <button
               type="button"
