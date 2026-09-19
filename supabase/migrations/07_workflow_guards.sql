@@ -8,7 +8,7 @@ CREATE OR REPLACE FUNCTION public.enforce_request_status_transition()
 RETURNS TRIGGER AS $$
 DECLARE
     transition_allowed BOOLEAN := false;
-    current_role user_role_enum;
+    actor_role user_role_enum;
 BEGIN
     IF OLD.status IS NOT DISTINCT FROM NEW.status THEN
         RETURN NEW;
@@ -28,8 +28,8 @@ BEGIN
             USING ERRCODE = 'P0001';
     END IF;
 
-    current_role := public.get_auth_role();
-    IF current_role = 'STUDENT' AND NOT (
+    actor_role := public.get_auth_role();
+    IF actor_role = 'STUDENT' AND NOT (
         NEW.status = 'CANCELLED' OR
         (OLD.status = 'NEEDS_INFORMATION' AND NEW.status = 'UNDER_REVIEW')
     ) THEN
