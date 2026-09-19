@@ -20,8 +20,101 @@ export const IbacmiFooter: React.FC = () => {
   return (
     <footer className="bg-slate-950 text-slate-400 border-t border-slate-800 text-xs">
       {/* Upper Main Footer Grid */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-12">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8 lg:py-16">
+        {/* Compact Mobile Footer */}
+        <div className="space-y-4 lg:hidden">
+          <div className="flex items-start justify-between gap-4">
+            <Link to="/" className="inline-block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950">
+              <IbacmiLogo size="sm" textColor="light" />
+            </Link>
+            <a
+              href={COLLEGE_INFO.facebook}
+              target="_blank"
+              rel="noreferrer"
+              aria-label="Open official Facebook page"
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-lg bg-blue-600/20 text-blue-400 transition-colors hover:bg-blue-600 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+            >
+              <Facebook className="h-4 w-4" aria-hidden="true" />
+            </a>
+          </div>
+
+          <p className="max-w-xl text-xs leading-relaxed text-slate-400">
+            Official academic and registrar services for IBA College of Mindanao.
+          </p>
+
+          <div className="grid grid-cols-2 gap-2">
+            <Link
+              to="/new-request"
+              className="flex min-h-11 items-center justify-center rounded-lg bg-blue-700 px-3 text-center text-xs font-bold text-white transition-colors hover:bg-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+            >
+              Request Document
+            </Link>
+            <Link
+              to="/track"
+              className="flex min-h-11 items-center justify-center rounded-lg border border-slate-700 px-3 text-center text-xs font-bold text-slate-200 transition-colors hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+            >
+              Track Request
+            </Link>
+          </div>
+
+          <div className="divide-y divide-slate-800 rounded-xl border-y border-slate-800">
+            <details className="group">
+              <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-1 text-sm font-bold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 [&::-webkit-details-marker]:hidden">
+                <span>Programs</span>
+                <ChevronRight className="h-4 w-4 text-slate-500 transition-transform group-open:rotate-90" aria-hidden="true" />
+              </summary>
+              <div className="space-y-2 pb-4 pl-1 text-xs text-slate-400">
+                <Link to="/programs" className="block py-1 transition-colors hover:text-amber-300">View all programs</Link>
+                <Link to="/programs?category=college" className="block py-1 transition-colors hover:text-amber-300">College degrees</Link>
+                <Link to="/programs?category=shs" className="block py-1 transition-colors hover:text-amber-300">Senior High School</Link>
+                <Link to="/programs?category=basic" className="block py-1 transition-colors hover:text-amber-300">Basic Education</Link>
+              </div>
+            </details>
+
+            <details className="group">
+              <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-1 text-sm font-bold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 [&::-webkit-details-marker]:hidden">
+                <span>Services</span>
+                <ChevronRight className="h-4 w-4 text-slate-500 transition-transform group-open:rotate-90" aria-hidden="true" />
+              </summary>
+              <div className="space-y-2 pb-4 pl-1 text-xs text-slate-400">
+                <Link to="/services" className="block py-1 transition-colors hover:text-amber-300">Document Services</Link>
+                <Link to="/new-request" className="block py-1 transition-colors hover:text-amber-300">Request Records</Link>
+                <Link to="/login" className="block py-1 transition-colors hover:text-amber-300">Student Portal Login</Link>
+                <Link to="/about" className="block py-1 transition-colors hover:text-amber-300">Vision & Mission</Link>
+              </div>
+            </details>
+
+            <details className="group">
+              <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-1 text-sm font-bold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 [&::-webkit-details-marker]:hidden">
+                <span>Contact</span>
+                <ChevronRight className="h-4 w-4 text-slate-500 transition-transform group-open:rotate-90" aria-hidden="true" />
+              </summary>
+              <div className="space-y-3 pb-4 pl-1 text-xs text-slate-400">
+                <div className="flex items-start gap-2">
+                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" aria-hidden="true" />
+                  <span>{COLLEGE_INFO.address}</span>
+                </div>
+                <a href={`tel:${COLLEGE_INFO.contactNumber}`} className="flex items-center gap-2 transition-colors hover:text-white">
+                  <Phone className="h-4 w-4 shrink-0 text-amber-400" aria-hidden="true" />
+                  <span>{COLLEGE_INFO.contactNumber}</span>
+                </a>
+                <a href={`mailto:${COLLEGE_INFO.email}`} className="flex items-center gap-2 truncate transition-colors hover:text-white">
+                  <Mail className="h-4 w-4 shrink-0 text-amber-400" aria-hidden="true" />
+                  <span className="truncate">{COLLEGE_INFO.email}</span>
+                </a>
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 shrink-0 text-amber-400" aria-hidden="true" />
+                  <span>Mon–Fri: 8:00 AM–5:00 PM</span>
+                </div>
+              </div>
+            </details>
+          </div>
+
+          <p className="text-[11px] text-slate-500">CHED Recognized • DepEd SHS • TESDA Assessment Center</p>
+        </div>
+
+        {/* Full Desktop Footer Grid */}
+        <div className="hidden grid-cols-1 gap-8 md:grid-cols-2 lg:grid lg:grid-cols-12 lg:gap-12">
           {/* Col 1: Brand & College Info (4 cols) */}
           <div className="lg:col-span-4 space-y-4">
             <Link to="/" className="inline-block">
@@ -181,7 +274,7 @@ export const IbacmiFooter: React.FC = () => {
           <div>
             © {new Date().getFullYear()} {COLLEGE_INFO.name}. All Rights Reserved.
           </div>
-          <div className="flex items-center space-x-4">
+          <div className="hidden items-center space-x-4 sm:flex">
             <Link to="/about" className="hover:text-slate-300 transition-colors">
               Institutional Profile
             </Link>

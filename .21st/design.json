@@ -66,6 +66,10 @@
     {
       "decision": "Use a collapsible left sidebar for authenticated student portal navigation, with a slide-out drawer on mobile.",
       "reason": "Keep portal navigation available without consuming phone vertical space, while preserving five focused student actions and accessible touch targets."
+    },
+    {
+      "decision": "Use a compact mobile footer with two primary actions and native accordion sections for Programs, Services, and Contact; retain the detailed four-column footer on desktop.",
+      "reason": "Reduce mobile scrolling while keeping secondary institutional information discoverable and keyboard accessible."
     }
   ],
   "evidence": [
