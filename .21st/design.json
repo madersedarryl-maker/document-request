@@ -58,6 +58,10 @@
     {
       "decision": "Keep demo mode explicit and opt-in; production uses Supabase only.",
       "reason": "Prevent browser mock data from masking deployment or authorization failures."
+    },
+    {
+      "decision": "Use a compact public navigation with Programs, Services, and Track Request visible; group About, News, and Contact under More; keep Log in prominent.",
+      "reason": "Reduce cognitive load while preserving access to secondary institutional pages and the most important request actions."
     }
   ],
   "evidence": [

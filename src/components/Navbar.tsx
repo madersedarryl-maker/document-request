@@ -26,7 +26,6 @@ import {
   ChevronDown,
   Globe,
   PlusCircle,
-  Clock,
   ExternalLink,
   Shield,
   HelpCircle,
@@ -43,9 +42,11 @@ export const Navbar: React.FC = () => {
   const [showRoleSwitcher, setShowRoleSwitcher] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [programsDropdownOpen, setProgramsDropdownOpen] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
 
   const roleSwitcherRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -62,9 +63,22 @@ export const Navbar: React.FC = () => {
       ) {
         setShowUserMenu(false);
       }
+      if (moreMenuRef.current && !moreMenuRef.current.contains(event.target as Node)) {
+        setShowMoreMenu(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowMoreMenu(false);
+        setProgramsDropdownOpen(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, []);
 
   const isPortalView =
@@ -93,7 +107,6 @@ export const Navbar: React.FC = () => {
   };
 
   const publicNavLinks = [
-    { name: 'Home', path: '/' },
     {
       name: 'Programs',
       path: '/programs',
@@ -105,10 +118,13 @@ export const Navbar: React.FC = () => {
         { label: 'Basic Education (Pre-School & JHS)', path: '/programs?category=basic' },
       ],
     },
-    { name: 'Document Services', path: '/services' },
+    { name: 'Services', path: '/services' },
     { name: 'Track Request', path: '/track' },
-    { name: 'About IBACMI', path: '/about' },
-    { name: 'News & Events', path: '/news' },
+  ];
+
+  const morePublicNavLinks = [
+    { name: 'About', path: '/about' },
+    { name: 'News', path: '/news' },
     { name: 'Contact', path: '/contact' },
   ];
 
@@ -161,7 +177,7 @@ export const Navbar: React.FC = () => {
 
                         {/* Dropdown Menu */}
                         <div
-                          className={`absolute top-full left-0 w-72 bg-white rounded-xl shadow-lg border border-slate-200 py-2 transition-all duration-200 origin-top-left z-50 ${
+                          className={`absolute top-full left-0 w-72 bg-white rounded-xl shadow-lg border border-slate-200 py-2 transition-[opacity,transform] duration-200 origin-top-left z-50 ${
                             programsDropdownOpen
                               ? 'opacity-100 scale-100 pointer-events-auto visible'
                               : 'opacity-0 scale-95 pointer-events-none invisible'
@@ -199,6 +215,47 @@ export const Navbar: React.FC = () => {
                     </Link>
                   );
                 })}
+
+                <div className="relative" ref={moreMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() => setShowMoreMenu((isOpen) => !isOpen)}
+                    aria-expanded={showMoreMenu}
+                    aria-haspopup="menu"
+                    className={`px-3 py-2 text-xs font-semibold rounded-lg flex items-center gap-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 ${
+                      morePublicNavLinks.some((item) => isActive(item.path))
+                        ? 'text-blue-700 bg-blue-50 font-bold'
+                        : 'text-slate-700 hover:text-slate-950 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span>More</span>
+                    <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${showMoreMenu ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {showMoreMenu && (
+                    <div
+                      role="menu"
+                      aria-label="More website pages"
+                      className="absolute right-0 top-full mt-1 w-44 rounded-xl border border-slate-200 bg-white py-1.5 shadow-lg"
+                    >
+                      {morePublicNavLinks.map((item) => (
+                        <Link
+                          key={item.name}
+                          to={item.path}
+                          role="menuitem"
+                          onClick={() => setShowMoreMenu(false)}
+                          className={`block px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600 ${
+                            isActive(item.path)
+                              ? 'bg-blue-50 text-blue-700'
+                              : 'text-slate-700 hover:bg-slate-50 hover:text-slate-950'
+                          }`}
+                        >
+                          {item.name}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </nav>
             ) : (
               /* Enterprise Administration & Student Navigation */
@@ -332,16 +389,8 @@ export const Navbar: React.FC = () => {
                 /* Public Visitor Actions */
                 <div className="flex items-center space-x-2">
                   <Link
-                    to="/track"
-                    className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-medium transition-colors"
-                  >
-                    <Clock className="w-3.5 h-3.5 text-amber-600" />
-                    <span>Track Status</span>
-                  </Link>
-
-                  <Link
                     to="/new-request"
-                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-blue-700 hover:bg-blue-800 text-white font-medium text-xs shadow-2xs transition-colors"
+                    className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-medium transition-colors"
                   >
                     <PlusCircle className="w-3.5 h-3.5" />
                     <span>New Request</span>
@@ -349,7 +398,7 @@ export const Navbar: React.FC = () => {
 
                   <Link
                     to="/login"
-                    className="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-800 hover:bg-slate-100 text-xs font-medium transition-colors"
+                    className="px-3.5 py-1.5 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold shadow-2xs transition-colors"
                   >
                     <span>Log in</span>
                   </Link>
@@ -361,7 +410,7 @@ export const Navbar: React.FC = () => {
                   {(role === 'STAFF' || role === 'ADMIN') && (
                     <Link
                       to="/dashboard"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#7a132b] hover:bg-[#8f1733] text-white text-xs font-bold transition-all shadow-2xs"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#7a132b] hover:bg-[#8f1733] text-white text-xs font-bold transition-colors shadow-2xs"
                       title="Open Admin/Staff Workspace with Sidebar Navigation"
                     >
                       <LayoutDashboard className="w-3.5 h-3.5" />
@@ -639,6 +688,24 @@ export const Navbar: React.FC = () => {
                     {item.name}
                   </Link>
                 ))}
+
+                <div className="mt-2 border-t border-slate-200 pt-2">
+                  <p className="px-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">More</p>
+                  {morePublicNavLinks.map((item) => (
+                    <Link
+                      key={item.name}
+                      to={item.path}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className={`block px-3 py-2 rounded-lg text-xs font-semibold ${
+                        isActive(item.path)
+                          ? 'bg-blue-50 text-blue-700 font-bold'
+                          : 'text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      {item.name}
+                    </Link>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -652,12 +719,11 @@ export const Navbar: React.FC = () => {
                 <span>New Request</span>
               </Link>
               <Link
-                to="/track"
+                to="/login"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="py-2 text-center text-xs font-semibold rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center justify-center gap-1"
+                className="py-2 text-center text-xs font-semibold rounded-lg border border-blue-700 text-blue-700 hover:bg-blue-50 flex items-center justify-center gap-1"
               >
-                <Clock className="w-3.5 h-3.5 text-amber-600" />
-                <span>Track Status</span>
+                <span>Log in</span>
               </Link>
             </div>
           </div>
