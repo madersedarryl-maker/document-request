@@ -19,6 +19,7 @@ import {
   RefreshCw,
   PieChart,
   Layers,
+  AlertCircle,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -27,6 +28,7 @@ export const ReportsPage: React.FC = () => {
   const [requests, setRequests] = useState<DocumentRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const loadStats = async () => {
     try {
@@ -54,6 +56,7 @@ export const ReportsPage: React.FC = () => {
   };
 
   const handleExportAll = async () => {
+    setExportError(null);
     try {
       const allRequests = await requestService.getAllRequests();
       const csv = reportService.exportRequestsToCSV(allRequests);
@@ -69,7 +72,7 @@ export const ReportsPage: React.FC = () => {
       link.click();
       document.body.removeChild(link);
     } catch (err: any) {
-      alert('Export failed: ' + err.message);
+      setExportError(err.message || 'Export failed. Please try again.');
     }
   };
 
@@ -105,6 +108,13 @@ export const ReportsPage: React.FC = () => {
           </div>
         }
       />
+
+      {exportError && (
+        <div role="alert" className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          {exportError}
+        </div>
+      )}
 
       {loading || !stats ? (
         <ReportsAnalyticsSkeleton />

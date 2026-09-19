@@ -17,6 +17,7 @@ import {
   Sparkles,
   School,
 } from 'lucide-react';
+import { isDemoMode } from '../../lib/appConfig';
 
 export const Login: React.FC = () => {
   const { signIn, switchDemoAccount } = useAuth();
@@ -89,8 +90,8 @@ export const Login: React.FC = () => {
       </div>
 
       <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-md">
-        {/* 1-Click Instant Demo Login Bar */}
-        <div className="mb-4 bg-gradient-to-r from-amber-50/80 via-white to-red-50/80 border border-amber-200/80 rounded-2xl p-4 shadow-xs">
+        {/* Explicitly opt-in demo access; never expose it in production. */}
+        {isDemoMode() && <div className="mb-4 bg-gradient-to-r from-amber-50/80 via-white to-red-50/80 border border-amber-200/80 rounded-2xl p-4 shadow-xs">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-1.5 text-xs font-bold text-[#8B1E23]">
               <Sparkles className="w-4 h-4 text-amber-600" />
@@ -138,7 +139,7 @@ export const Login: React.FC = () => {
               <span className="text-[10px] text-slate-400 group-hover:text-blue-100">Dr. Vance</span>
             </button>
           </div>
-        </div>
+        </div>}
 
         <div className="bg-white py-7 px-6 shadow-xl border border-slate-200 sm:rounded-2xl sm:px-8">
           {error && (
@@ -218,7 +219,7 @@ export const Login: React.FC = () => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-4 py-2.5 bg-[#8B1E23] text-white rounded-xl text-xs font-bold hover:bg-[#5F1217] transition-all shadow-xs cursor-pointer"
+                  className="px-4 py-2.5 bg-[#8B1E23] text-white rounded-xl text-xs font-bold hover:bg-[#5F1217] transition-[background-color,box-shadow] shadow-xs cursor-pointer"
                 >
                   {loading ? 'Sending...' : 'Send Recovery Link'}
                 </button>
@@ -238,7 +239,7 @@ export const Login: React.FC = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="e.g. student@ibacmi.edu.ph"
-                    className="w-full text-xs pl-9 pr-3 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-[#8B1E23] focus:border-[#8B1E23] transition-all"
+                    className="w-full text-xs pl-9 pr-3 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-[#8B1E23] focus:border-[#8B1E23] transition-[border-color,box-shadow]"
                   />
                 </div>
               </div>
@@ -267,7 +268,7 @@ export const Login: React.FC = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full text-xs pl-9 pr-3 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition-colors"
+                    className="w-full text-xs pl-9 pr-3 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition-colors"
                   />
                 </div>
               </div>

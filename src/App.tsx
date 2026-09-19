@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
@@ -6,35 +6,38 @@ import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { ToastAlert } from './components/ToastAlert';
 import { AdminStaffLayout } from './components/layout/AdminStaffLayout';
+import { isRoleAllowed } from './lib/permissions';
+import { appConfig } from './lib/appConfig';
+import { getSupabaseConfig } from './lib/supabase';
 
 // IBACMI Public Institutional Pages
-import { HomePage } from './pages/ibacmi/HomePage';
-import { ProgramsPage } from './pages/ibacmi/ProgramsPage';
-import { AboutPage } from './pages/ibacmi/AboutPage';
-import { PortalServicesPage } from './pages/ibacmi/PortalServicesPage';
-import { NewsPage } from './pages/ibacmi/NewsPage';
-import { ContactPage } from './pages/ibacmi/ContactPage';
+const HomePage = lazy(() => import('./pages/ibacmi/HomePage').then((m) => ({ default: m.HomePage })));
+const ProgramsPage = lazy(() => import('./pages/ibacmi/ProgramsPage').then((m) => ({ default: m.ProgramsPage })));
+const AboutPage = lazy(() => import('./pages/ibacmi/AboutPage').then((m) => ({ default: m.AboutPage })));
+const PortalServicesPage = lazy(() => import('./pages/ibacmi/PortalServicesPage').then((m) => ({ default: m.PortalServicesPage })));
+const NewsPage = lazy(() => import('./pages/ibacmi/NewsPage').then((m) => ({ default: m.NewsPage })));
+const ContactPage = lazy(() => import('./pages/ibacmi/ContactPage').then((m) => ({ default: m.ContactPage })));
 
 // Auth & Public Document Tracking
-import { Login } from './pages/auth/Login';
-import { Register } from './pages/auth/Register';
-import { PublicTrack } from './pages/public/PublicTrack';
+const Login = lazy(() => import('./pages/auth/Login').then((m) => ({ default: m.Login })));
+const Register = lazy(() => import('./pages/auth/Register').then((m) => ({ default: m.Register })));
+const PublicTrack = lazy(() => import('./pages/public/PublicTrack').then((m) => ({ default: m.PublicTrack })));
 
 // Student Portal Pages
-import { StudentDashboard } from './pages/student/StudentDashboard';
-import { NewRequestForm } from './pages/student/NewRequestForm';
-import { MyRequests } from './pages/student/MyRequests';
-import { RequestDetail } from './pages/student/RequestDetail';
+const StudentDashboard = lazy(() => import('./pages/student/StudentDashboard').then((m) => ({ default: m.StudentDashboard })));
+const NewRequestForm = lazy(() => import('./pages/student/NewRequestForm').then((m) => ({ default: m.NewRequestForm })));
+const MyRequests = lazy(() => import('./pages/student/MyRequests').then((m) => ({ default: m.MyRequests })));
+const RequestDetail = lazy(() => import('./pages/student/RequestDetail').then((m) => ({ default: m.RequestDetail })));
 
 // Staff & Admin Portal Pages
-import { StaffDashboard } from './pages/staff/StaffDashboard';
-import { StaffRequestQueue } from './pages/staff/StaffRequestQueue';
-import { StaffRequestDetail } from './pages/staff/StaffRequestDetail';
-import { DocumentTypesManager } from './pages/admin/DocumentTypesManager';
-import { UserManagement } from './pages/admin/UserManagement';
-import { ReportsPage } from './pages/admin/ReportsPage';
-import { AuditLogsPage } from './pages/admin/AuditLogsPage';
-import { SystemSettingsPage } from './pages/admin/SystemSettingsPage';
+const StaffDashboard = lazy(() => import('./pages/staff/StaffDashboard').then((m) => ({ default: m.StaffDashboard })));
+const StaffRequestQueue = lazy(() => import('./pages/staff/StaffRequestQueue').then((m) => ({ default: m.StaffRequestQueue })));
+const StaffRequestDetail = lazy(() => import('./pages/staff/StaffRequestDetail').then((m) => ({ default: m.StaffRequestDetail })));
+const DocumentTypesManager = lazy(() => import('./pages/admin/DocumentTypesManager').then((m) => ({ default: m.DocumentTypesManager })));
+const UserManagement = lazy(() => import('./pages/admin/UserManagement').then((m) => ({ default: m.UserManagement })));
+const ReportsPage = lazy(() => import('./pages/admin/ReportsPage').then((m) => ({ default: m.ReportsPage })));
+const AuditLogsPage = lazy(() => import('./pages/admin/AuditLogsPage').then((m) => ({ default: m.AuditLogsPage })));
+const SystemSettingsPage = lazy(() => import('./pages/admin/SystemSettingsPage').then((m) => ({ default: m.SystemSettingsPage })));
 
 // Protected Route Guard
 const ProtectedRoute: React.FC<{
@@ -55,7 +58,7 @@ const ProtectedRoute: React.FC<{
     return <Navigate to="/login" replace />;
   }
 
-  if (allowedRoles && role && !allowedRoles.includes(role)) {
+  if (!isRoleAllowed(role, allowedRoles)) {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -89,6 +92,12 @@ const HomeRoute: React.FC = () => {
   return <StudentDashboard />;
 };
 
+const RouteFallback: React.FC = () => (
+  <div className="flex min-h-[45vh] items-center justify-center px-6 text-sm text-slate-500" role="status" aria-live="polite">
+    Loading portal workspace…
+  </div>
+);
+
 const AppShell: React.FC = () => {
   const { user, role } = useAuth();
   const location = useLocation();
@@ -101,12 +110,23 @@ const AppShell: React.FC = () => {
       location.pathname.startsWith('/admin') ||
       location.pathname === '/services' ||
       location.pathname === '/track');
+  const showConfigurationNotice =
+    appConfig.isProduction &&
+    !getSupabaseConfig().isConfigured &&
+    (location.pathname === '/login' || location.pathname === '/register' || location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/staff') || location.pathname.startsWith('/admin'));
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 font-sans text-slate-900 selection:bg-amber-100 selection:text-blue-950">
       {!isStaffAdminWorkspace && <Navbar />}
 
+      {showConfigurationNotice && (
+        <div role="alert" className="border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-center text-xs font-medium text-amber-950">
+          Production mode is active, but Supabase is not configured. Add the required `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` environment variables before using portal workflows.
+        </div>
+      )}
+
       <main className="flex-1">
+        <Suspense fallback={<RouteFallback />}>
         <Routes>
           {/* Official Institutional Pages */}
           <Route path="/" element={<HomePage />} />
@@ -257,6 +277,7 @@ const AppShell: React.FC = () => {
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </Suspense>
       </main>
 
       {!isStaffAdminWorkspace && <Footer />}

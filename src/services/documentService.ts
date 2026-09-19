@@ -1,6 +1,7 @@
 import { supabase, getSupabaseConfig } from '../lib/supabase';
 import { DocumentType, DocumentRequirement } from '../types';
 import { mockStore } from './mockStore';
+import { isDemoMode, productionConfigurationMessage } from '../lib/appConfig';
 
 export const documentService = {
   /**
@@ -8,7 +9,7 @@ export const documentService = {
    */
   async getActiveDocumentTypes(): Promise<DocumentType[]> {
     const config = getSupabaseConfig();
-    if (!config.isConfigured) {
+    if (!config.isConfigured && isDemoMode()) {
       return mockStore.getDocumentTypes(true);
     }
 
@@ -20,7 +21,7 @@ export const documentService = {
         .order('name');
 
       if (typesError) throw typesError;
-      if (!types || types.length === 0) return mockStore.getDocumentTypes(true);
+      if (!types || types.length === 0) return isDemoMode() ? mockStore.getDocumentTypes(true) : [];
 
       const { data: requirements } = await supabase
         .from('document_requirements')
@@ -31,7 +32,8 @@ export const documentService = {
         requirements: requirements?.filter((r) => r.document_type_id === docType.id) || [],
       }));
     } catch (e) {
-      return mockStore.getDocumentTypes(true);
+      if (isDemoMode()) return mockStore.getDocumentTypes(true);
+      throw e;
     }
   },
 
@@ -40,7 +42,7 @@ export const documentService = {
    */
   async getAllDocumentTypes(): Promise<DocumentType[]> {
     const config = getSupabaseConfig();
-    if (!config.isConfigured) {
+    if (!config.isConfigured && isDemoMode()) {
       return mockStore.getDocumentTypes(false);
     }
 
@@ -61,7 +63,8 @@ export const documentService = {
         requirements: requirements?.filter((r) => r.document_type_id === docType.id) || [],
       }));
     } catch (e) {
-      return mockStore.getDocumentTypes(false);
+      if (isDemoMode()) return mockStore.getDocumentTypes(false);
+      throw e;
     }
   },
 
@@ -72,9 +75,9 @@ export const documentService = {
     doc: Omit<DocumentType, 'id' | 'created_at' | 'updated_at' | 'requirements'>,
     requirements: Omit<DocumentRequirement, 'id' | 'document_type_id' | 'created_at'>[] = []
   ) {
-    const created = mockStore.createDocumentType(doc as any, requirements);
-
     const config = getSupabaseConfig();
+    if (!config.isConfigured && !isDemoMode()) throw new Error(productionConfigurationMessage);
+    const created = isDemoMode() ? mockStore.createDocumentType(doc as any, requirements) : null;
     if (config.isConfigured) {
       try {
         const { data: newDoc, error: docErr } = await supabase
@@ -94,11 +97,12 @@ export const documentService = {
           await supabase.from('document_requirements').insert(reqRows);
         }
       } catch (e) {
+        if (!isDemoMode()) throw e;
         console.warn('Supabase createDocumentType error:', e);
       }
     }
 
-    return created;
+    return created || undefined;
   },
 
   /**
@@ -108,9 +112,9 @@ export const documentService = {
     id: string,
     updates: Partial<Omit<DocumentType, 'id' | 'created_at' | 'updated_at' | 'requirements'>>
   ) {
-    const updated = mockStore.updateDocumentType(id, updates);
-
     const config = getSupabaseConfig();
+    if (!config.isConfigured && !isDemoMode()) throw new Error(productionConfigurationMessage);
+    const updated = isDemoMode() ? mockStore.updateDocumentType(id, updates) : null;
     if (config.isConfigured) {
       try {
         await supabase
@@ -118,25 +122,26 @@ export const documentService = {
           .update({ ...updates, updated_at: new Date().toISOString() })
           .eq('id', id);
       } catch (e) {
+        if (!isDemoMode()) throw e;
         console.warn('Supabase updateDocumentType error:', e);
       }
     }
 
-    return updated;
+    return updated || undefined;
   },
 
   /**
    * Delete or deactivate document type
    */
   async deleteDocumentType(id: string) {
-    mockStore.deleteDocumentType(id);
-
     const config = getSupabaseConfig();
+    if (!config.isConfigured && !isDemoMode()) throw new Error(productionConfigurationMessage);
+    if (isDemoMode()) mockStore.deleteDocumentType(id);
     if (config.isConfigured) {
       try {
         await supabase.from('document_types').delete().eq('id', id);
       } catch (e) {
-        // ignore
+        if (!isDemoMode()) throw e;
       }
     }
   },
@@ -150,8 +155,9 @@ export const documentService = {
   ): Promise<DocumentRequirement | void> {
     let result: DocumentRequirement | undefined;
     let payload: any;
+    if (!getSupabaseConfig().isConfigured && !isDemoMode()) throw new Error(productionConfigurationMessage);
     if (typeof docTypeIdOrReq === 'string' && optionalReq) {
-      result = mockStore.addRequirement(docTypeIdOrReq, optionalReq);
+      if (isDemoMode()) result = mockStore.addRequirement(docTypeIdOrReq, optionalReq);
       payload = {
         document_type_id: docTypeIdOrReq,
         requirement_name: optionalReq.requirement_name,
@@ -163,7 +169,7 @@ export const documentService = {
         conditional_rule: optionalReq.conditional_rule || null,
       };
     } else if (typeof docTypeIdOrReq === 'object') {
-      result = mockStore.addRequirement(docTypeIdOrReq.document_type_id, docTypeIdOrReq);
+      if (isDemoMode()) result = mockStore.addRequirement(docTypeIdOrReq.document_type_id, docTypeIdOrReq);
       payload = {
         document_type_id: docTypeIdOrReq.document_type_id,
         requirement_name: docTypeIdOrReq.requirement_name,
@@ -188,6 +194,7 @@ export const documentService = {
           return data as DocumentRequirement;
         }
       } catch (e) {
+        if (!isDemoMode()) throw e;
         console.warn('Supabase addRequirement error:', e);
       }
     }
@@ -198,9 +205,9 @@ export const documentService = {
    * Update an existing document requirement
    */
   async updateRequirement(id: string, updates: Partial<DocumentRequirement>): Promise<DocumentRequirement | null> {
-    const updated = mockStore.updateRequirement(id, updates);
-
     const config = getSupabaseConfig();
+    if (!config.isConfigured && !isDemoMode()) throw new Error(productionConfigurationMessage);
+    const updated = isDemoMode() ? mockStore.updateRequirement(id, updates) : null;
     if (config.isConfigured) {
       try {
         const { data, error } = await supabase
@@ -213,6 +220,7 @@ export const documentService = {
           return data as DocumentRequirement;
         }
       } catch (e) {
+        if (!isDemoMode()) throw e;
         console.warn('Supabase updateRequirement error:', e);
       }
     }
@@ -224,7 +232,7 @@ export const documentService = {
    */
   async getDocumentTypeById(id: string): Promise<DocumentType | null> {
     const config = getSupabaseConfig();
-    if (!config.isConfigured) {
+    if (!config.isConfigured && isDemoMode()) {
       const all = mockStore.getDocumentTypes(false);
       return all.find((d) => d.id === id) || null;
     }
@@ -237,8 +245,11 @@ export const documentService = {
         .single();
 
       if (error || !docType) {
-        const all = mockStore.getDocumentTypes(false);
-        return all.find((d) => d.id === id) || null;
+        if (isDemoMode()) {
+          const all = mockStore.getDocumentTypes(false);
+          return all.find((d) => d.id === id) || null;
+        }
+        throw error;
       }
 
       const { data: requirements } = await supabase
@@ -252,8 +263,11 @@ export const documentService = {
         requirements: requirements || [],
       };
     } catch (e) {
-      const all = mockStore.getDocumentTypes(false);
-      return all.find((d) => d.id === id) || null;
+      if (isDemoMode()) {
+        const all = mockStore.getDocumentTypes(false);
+        return all.find((d) => d.id === id) || null;
+      }
+      throw e;
     }
   },
 
@@ -261,9 +275,9 @@ export const documentService = {
    * Reorder requirements for a document type
    */
   async reorderRequirements(docTypeId: string, orderedIds: string[]): Promise<void> {
-    mockStore.reorderRequirements(docTypeId, orderedIds);
-
     const config = getSupabaseConfig();
+    if (!config.isConfigured && !isDemoMode()) throw new Error(productionConfigurationMessage);
+    if (isDemoMode()) mockStore.reorderRequirements(docTypeId, orderedIds);
     if (config.isConfigured) {
       try {
         for (let idx = 0; idx < orderedIds.length; idx++) {
@@ -273,6 +287,7 @@ export const documentService = {
             .eq('id', orderedIds[idx]);
         }
       } catch (e) {
+        if (!isDemoMode()) throw e;
         console.warn('Supabase reorderRequirements error:', e);
       }
     }
@@ -282,14 +297,14 @@ export const documentService = {
    * Remove a document requirement
    */
   async deleteRequirement(id: string) {
-    mockStore.deleteRequirement(id);
-
     const config = getSupabaseConfig();
+    if (!config.isConfigured && !isDemoMode()) throw new Error(productionConfigurationMessage);
+    if (isDemoMode()) mockStore.deleteRequirement(id);
     if (config.isConfigured) {
       try {
         await supabase.from('document_requirements').delete().eq('id', id);
       } catch (e) {
-        // ignore
+        if (!isDemoMode()) throw e;
       }
     }
   },

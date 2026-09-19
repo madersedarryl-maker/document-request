@@ -1,6 +1,7 @@
 import { supabase, getSupabaseConfig } from '../lib/supabase';
 import { UserProfile, UserRole } from '../types';
 import { mockStore } from './mockStore';
+import { isDemoMode } from '../lib/appConfig';
 
 export const userService = {
   /**
@@ -8,7 +9,7 @@ export const userService = {
    */
   async getAllUsers(): Promise<UserProfile[]> {
     const config = getSupabaseConfig();
-    if (!config.isConfigured) {
+    if (!config.isConfigured && isDemoMode()) {
       return mockStore.getAllUsers();
     }
 
@@ -25,7 +26,8 @@ export const userService = {
       if (error) throw error;
       return (data || []) as any[];
     } catch (e) {
-      return mockStore.getAllUsers();
+      if (isDemoMode()) return mockStore.getAllUsers();
+      throw e;
     }
   },
 
@@ -33,39 +35,27 @@ export const userService = {
    * Update user role (Admin only)
    */
   async updateUserRole(userId: string, newRole: UserRole): Promise<void> {
-    const user = mockStore.getUserById(userId);
-    mockStore.updateUserRoleAndStatus(userId, newRole, user?.status || 'ACTIVE');
-
     const config = getSupabaseConfig();
-    if (config.isConfigured) {
-      try {
-        await supabase
-          .from('profiles')
-          .update({ role: newRole, updated_at: new Date().toISOString() })
-          .eq('id', userId);
-      } catch (e) {
-        // ignore
-      }
+    if (!config.isConfigured && isDemoMode()) {
+      const user = mockStore.getUserById(userId);
+      mockStore.updateUserRoleAndStatus(userId, newRole, user?.status || 'ACTIVE');
+      return;
     }
+    const { error } = await supabase.from('profiles').update({ role: newRole, updated_at: new Date().toISOString() }).eq('id', userId);
+    if (error) throw error;
   },
 
   /**
    * Toggle user active/inactive status
    */
   async updateUserStatus(userId: string, status: 'ACTIVE' | 'INACTIVE'): Promise<void> {
-    const user = mockStore.getUserById(userId);
-    mockStore.updateUserRoleAndStatus(userId, user?.role || 'STUDENT', status);
-
     const config = getSupabaseConfig();
-    if (config.isConfigured) {
-      try {
-        await supabase
-          .from('profiles')
-          .update({ status, updated_at: new Date().toISOString() })
-          .eq('id', userId);
-      } catch (e) {
-        // ignore
-      }
+    if (!config.isConfigured && isDemoMode()) {
+      const user = mockStore.getUserById(userId);
+      mockStore.updateUserRoleAndStatus(userId, user?.role || 'STUDENT', status);
+      return;
     }
+    const { error } = await supabase.from('profiles').update({ status, updated_at: new Date().toISOString() }).eq('id', userId);
+    if (error) throw error;
   },
 };

@@ -1,6 +1,7 @@
 import { supabase, getSupabaseConfig } from '../lib/supabase';
 import { AuditLog } from '../types';
 import { mockStore } from './mockStore';
+import { isDemoMode } from '../lib/appConfig';
 
 export const auditService = {
   /**
@@ -8,7 +9,7 @@ export const auditService = {
    */
   async getAuditLogs(limit: number = 100, actionFilter?: string): Promise<AuditLog[]> {
     const config = getSupabaseConfig();
-    if (!config.isConfigured) {
+    if (!config.isConfigured && isDemoMode()) {
       return mockStore.getAuditLogs(actionFilter).slice(0, limit);
     }
 
@@ -30,7 +31,8 @@ export const auditService = {
       if (error) throw error;
       return (data || []) as AuditLog[];
     } catch (e) {
-      return mockStore.getAuditLogs(actionFilter).slice(0, limit);
+      if (isDemoMode()) return mockStore.getAuditLogs(actionFilter).slice(0, limit);
+      throw e;
     }
   },
 
@@ -44,12 +46,7 @@ export const auditService = {
     details?: Record<string, any>
   ): Promise<void> {
     const config = getSupabaseConfig();
-    mockStore.addAuditLog({
-      action,
-      entity_type: entityType,
-      entity_id: entityId,
-      details,
-    });
+    if (isDemoMode()) mockStore.addAuditLog({ action, entity_type: entityType, entity_id: entityId, details });
 
     if (config.isConfigured) {
       try {
@@ -62,7 +59,7 @@ export const auditService = {
           details: details || null,
         });
       } catch (e) {
-        // ignore
+        if (!isDemoMode()) throw e;
       }
     }
   },

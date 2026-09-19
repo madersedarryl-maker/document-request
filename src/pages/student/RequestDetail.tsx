@@ -36,6 +36,7 @@ export const RequestDetail: React.FC = () => {
   const [request, setRequest] = useState<DocumentRequest | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // Cancellation modal state
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
@@ -87,6 +88,7 @@ export const RequestDetail: React.FC = () => {
   const handleCancelRequest = async (reason?: string) => {
     if (!request || !user) return;
     setActionLoading(true);
+    setActionFeedback(null);
     try {
       await requestService.updateRequestStatus({
         requestId: request.id,
@@ -95,10 +97,11 @@ export const RequestDetail: React.FC = () => {
         reason: reason || 'Cancelled by student requester.',
       });
       setIsCancelModalOpen(false);
+      setActionFeedback({ type: 'success', message: 'Your request was cancelled successfully.' });
       await fetchRequestDetails();
     } catch (err: any) {
       console.error('Cancel request error:', err);
-      alert(err.message || 'Failed to cancel request.');
+      setActionFeedback({ type: 'error', message: err.message || 'Failed to cancel request.' });
     } finally {
       setActionLoading(false);
     }
@@ -108,6 +111,7 @@ export const RequestDetail: React.FC = () => {
     e.preventDefault();
     if (!request || !user) return;
     setIsFulfilling(true);
+    setActionFeedback(null);
 
     try {
       if (missingFiles.length > 0) {
@@ -134,10 +138,11 @@ export const RequestDetail: React.FC = () => {
 
       setMissingFiles([]);
       setInfoReplyNote('');
+      setActionFeedback({ type: 'success', message: 'Your information was submitted. The Registrar will review it shortly.' });
       await fetchRequestDetails();
     } catch (err: any) {
       console.error('Fulfill error:', err);
-      alert(err.message || 'Failed to update request information.');
+      setActionFeedback({ type: 'error', message: err.message || 'Failed to update request information.' });
     } finally {
       setIsFulfilling(false);
     }
@@ -223,6 +228,21 @@ export const RequestDetail: React.FC = () => {
         }
       />
 
+      {actionFeedback && (
+        <div
+          role="status"
+          aria-live="polite"
+          className={`flex items-start gap-3 rounded-xl border px-4 py-3 text-sm ${
+            actionFeedback.type === 'success'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+              : 'border-rose-200 bg-rose-50 text-rose-900'
+          }`}
+        >
+          {actionFeedback.type === 'success' ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /> : <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />}
+          <p>{actionFeedback.message}</p>
+        </div>
+      )}
+
       {/* 2. Main Request Summary Card */}
       <div className="bg-white p-5 sm:p-6 rounded-xl border border-slate-200 shadow-2xs space-y-6">
         {/* Action alert banner if NEEDS_INFORMATION */}
@@ -248,7 +268,7 @@ export const RequestDetail: React.FC = () => {
                 placeholder="Clarification message or note for the registrar officer..."
                 value={infoReplyNote}
                 onChange={(e) => setInfoReplyNote(e.target.value)}
-                className="w-full text-xs p-2.5 rounded-lg border border-amber-300 bg-white focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                className="w-full text-xs p-2.5 rounded-lg border border-amber-300 bg-white focus:ring-2 focus:ring-amber-500"
               />
 
               <FileUploader

@@ -21,6 +21,7 @@ import {
   DocumentReviewItem,
   RequirementSubmissionFile,
 } from '../types';
+import { assertStatusReason, assertValidRequestStatusTransition } from '../lib/requestRules';
 
 const STORE_KEY = 'sdr_local_mock_store_v2';
 
@@ -2439,6 +2440,11 @@ class LocalMockStore {
   }): void {
     const actorId = params.changedBy || this.state.currentUserId || 'usr-staff-001';
     let previousStatus: RequestStatus = 'SUBMITTED';
+
+    const currentRequest = this.state.requests.find((request) => request.id === params.requestId);
+    if (!currentRequest) throw new Error('Request not found.');
+    assertValidRequestStatusTransition(currentRequest.status, params.newStatus);
+    assertStatusReason(params.newStatus, params.reason, params.comment);
 
     const requests = this.state.requests.map((r) => {
       if (r.id === params.requestId) {

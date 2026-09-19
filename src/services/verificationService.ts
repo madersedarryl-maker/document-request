@@ -9,6 +9,7 @@ import {
 } from '../types';
 import { mockStore } from './mockStore';
 import { storageService } from './storageService';
+import { isDemoMode } from '../lib/appConfig';
 
 export interface ReviewRequirementPayload {
   requestId: string;
@@ -78,11 +79,13 @@ export const verificationService = {
           }
         }
       } catch (err) {
+        if (!isDemoMode()) throw err;
         console.warn('Could not populate database request_requirements table:', err);
       }
     }
 
-    return mockStore.populateRequestRequirements(requestId, documentTypeId, files);
+    if (isDemoMode()) return mockStore.populateRequestRequirements(requestId, documentTypeId, files);
+    return this.getRequestRequirements(requestId);
   },
 
   /**
@@ -90,7 +93,7 @@ export const verificationService = {
    */
   async getRequestRequirements(requestId: string): Promise<RequestRequirementItem[]> {
     const config = getSupabaseConfig();
-    if (!config.isConfigured) {
+    if (!config.isConfigured && isDemoMode()) {
       return mockStore.getRequirementsForRequest(requestId);
     }
 
@@ -102,13 +105,19 @@ export const verificationService = {
         .eq('request_id', requestId);
 
       if (!error && reqRows && reqRows.length > 0) {
-        // Combine with mockStore / attachments for full review item details
-        return mockStore.getRequirementsForRequest(requestId);
+        return (reqRows || []).map((row: any) => ({
+          ...row,
+          current_status: row.status,
+          current_version: 1,
+          latest_files: [],
+          version_history: [],
+        })) as RequestRequirementItem[];
       }
-      return mockStore.getRequirementsForRequest(requestId);
+      return [];
     } catch (err) {
       console.error('Error fetching request requirements:', err);
-      return mockStore.getRequirementsForRequest(requestId);
+      if (isDemoMode()) return mockStore.getRequirementsForRequest(requestId);
+      throw err;
     }
   },
 
@@ -150,23 +159,34 @@ export const verificationService = {
           mime_type: uploadRes.mimeType,
         });
       } catch (err) {
+        if (!isDemoMode()) throw err;
         console.error('Error uploading requirement file:', file.name, err);
       }
     }
 
-    return mockStore.submitRequirementFiles({
+    if (isDemoMode()) return mockStore.submitRequirementFiles({
       requestId: payload.requestId,
       requirementId: payload.requirementId,
       files: uploadedFiles,
       userId: payload.userId,
     });
+
+    const { data, error } = await supabase
+      .from('request_requirements')
+      .update({ status: 'UNDER_REVIEW', updated_at: new Date().toISOString() })
+      .eq('request_id', payload.requestId)
+      .eq('requirement_id', payload.requirementId)
+      .select('*')
+      .single();
+    if (error) throw error;
+    return { ...data, current_status: data.status, current_version: 1, latest_files: uploadedFiles, version_history: [] } as RequestRequirementItem;
   },
 
   /**
    * Record a review decision (Approve, Reject, Needs Resubmission, N/A) for a requirement
    */
   async reviewRequirement(payload: ReviewRequirementPayload): Promise<RequestRequirementItem> {
-    return mockStore.reviewRequirement({
+    if (isDemoMode()) return mockStore.reviewRequirement({
       requestId: payload.requestId,
       requirementId: payload.requirementId,
       status: payload.status,
@@ -176,13 +196,26 @@ export const verificationService = {
       checklist: payload.checklist,
       reviewerId: payload.reviewerId,
     });
+
+    const { data, error } = await supabase
+      .from('request_requirements')
+      .update({ status: payload.status, updated_at: new Date().toISOString() })
+      .eq('request_id', payload.requestId)
+      .eq('requirement_id', payload.requirementId)
+      .select('*')
+      .single();
+    if (error) throw error;
+    return { ...data, current_status: data.status, current_version: 1, latest_files: [], version_history: [] } as RequestRequirementItem;
   },
 
   /**
    * Batch approve all submitted requirements for a request
    */
   async batchApproveAll(requestId: string, reviewerId: string, remarks?: string): Promise<RequestRequirementItem[]> {
-    return mockStore.batchVerifyAllRequirements(requestId, 'APPROVED', reviewerId, remarks);
+    if (isDemoMode()) return mockStore.batchVerifyAllRequirements(requestId, 'APPROVED', reviewerId, remarks);
+    const { data, error } = await supabase.from('request_requirements').update({ status: 'APPROVED', updated_at: new Date().toISOString() }).eq('request_id', requestId).select('*');
+    if (error) throw error;
+    return (data || []).map((row: any) => ({ ...row, current_status: row.status, current_version: 1, latest_files: [], version_history: [] })) as RequestRequirementItem[];
   },
 
   /**

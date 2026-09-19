@@ -18,6 +18,8 @@ import {
   ShieldAlert,
   GraduationCap,
   Briefcase,
+  AlertCircle,
+  CheckCircle2,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -33,6 +35,7 @@ export const UserManagement: React.FC = () => {
   const [selectedRole, setSelectedRole] = useState<UserRole>('STUDENT');
   const [selectedStatus, setSelectedStatus] = useState<'ACTIVE' | 'INACTIVE'>('ACTIVE');
   const [saving, setSaving] = useState(false);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const loadUsers = async () => {
     try {
@@ -65,14 +68,16 @@ export const UserManagement: React.FC = () => {
     e.preventDefault();
     if (!editingUser) return;
     setSaving(true);
+    setFeedback(null);
 
     try {
       await authService.updateUserRoleAndStatus(editingUser.id, selectedRole, selectedStatus);
       setEditingUser(null);
+      setFeedback({ type: 'success', message: 'User permissions were updated.' });
       await loadUsers();
     } catch (err: any) {
       console.error('Update user error:', err);
-      alert(err.message || 'Failed to update user record.');
+      setFeedback({ type: 'error', message: err.message || 'Failed to update user record.' });
     } finally {
       setSaving(false);
     }
@@ -116,6 +121,13 @@ export const UserManagement: React.FC = () => {
           </Button>
         }
       />
+
+      {feedback && (
+        <div role="status" aria-live="polite" className={`flex items-center gap-2 rounded-xl border px-4 py-3 text-sm ${feedback.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-rose-200 bg-rose-50 text-rose-900'}`}>
+          {feedback.type === 'success' ? <CheckCircle2 className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+          {feedback.message}
+        </div>
+      )}
 
       {/* 2. Filter and Search Bar */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3">

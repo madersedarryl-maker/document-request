@@ -1,5 +1,6 @@
 import { supabase, getSupabaseConfig } from '../lib/supabase';
 import { mockStore } from './mockStore';
+import { isDemoMode } from '../lib/appConfig';
 
 const BUCKET_NAME = 'request-attachments';
 
@@ -18,7 +19,7 @@ export const storageService = {
     const folder = requestId ? `${userId}/${requestId}` : `${userId}/temp`;
     const storagePath = `${folder}/${timestamp}_${sanitizedName}`;
 
-    if (!config.isConfigured) {
+    if (!config.isConfigured && isDemoMode()) {
       return {
         storagePath,
         fileName: file.name,
@@ -35,14 +36,7 @@ export const storageService = {
           upsert: false,
         });
 
-      if (error) {
-        return {
-          storagePath,
-          fileName: file.name,
-          fileSize: file.size,
-          mimeType: file.type || 'application/octet-stream',
-        };
-      }
+      if (error) throw error;
 
       return {
         storagePath: data.path,
@@ -51,12 +45,10 @@ export const storageService = {
         mimeType: file.type || 'application/octet-stream',
       };
     } catch (e) {
-      return {
-        storagePath,
-        fileName: file.name,
-        fileSize: file.size,
-        mimeType: file.type || 'application/octet-stream',
-      };
+      if (isDemoMode()) {
+        return { storagePath, fileName: file.name, fileSize: file.size, mimeType: file.type || 'application/octet-stream' };
+      }
+      throw e;
     }
   },
 
@@ -65,7 +57,7 @@ export const storageService = {
    */
   async getSignedUrl(storagePath: string, expiresInSeconds: number = 3600): Promise<string> {
     const config = getSupabaseConfig();
-    if (!config.isConfigured) {
+    if (!config.isConfigured && isDemoMode()) {
       return `https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=800&auto=format&fit=crop&q=80`;
     }
 
@@ -74,13 +66,12 @@ export const storageService = {
         .from(BUCKET_NAME)
         .createSignedUrl(storagePath, expiresInSeconds);
 
-      if (error || !data) {
-        return `https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=800&auto=format&fit=crop&q=80`;
-      }
+      if (error || !data) throw error || new Error('Unable to create a secure file URL.');
 
       return data.signedUrl;
     } catch (e) {
-      return `https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=800&auto=format&fit=crop&q=80`;
+      if (isDemoMode()) return `https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=800&auto=format&fit=crop&q=80`;
+      throw e;
     }
   },
 
@@ -115,16 +106,11 @@ export const storageService = {
     file_size?: number | null;
     mime_type?: string | null;
   }) {
-    const mockAtt = mockStore.addAttachment(record);
     const config = getSupabaseConfig();
-    if (config.isConfigured) {
-      try {
-        await supabase.from('request_attachments').insert(record);
-      } catch (e) {
-        // ignore
-      }
-    }
-    return mockAtt;
+    if (!config.isConfigured && isDemoMode()) return mockStore.addAttachment(record);
+    const { data, error } = await supabase.from('request_attachments').insert(record).select('*').single();
+    if (error) throw error;
+    return data;
   },
 
   /**
@@ -132,12 +118,8 @@ export const storageService = {
    */
   async deleteFile(storagePath: string): Promise<void> {
     const config = getSupabaseConfig();
-    if (config.isConfigured) {
-      try {
-        await supabase.storage.from(BUCKET_NAME).remove([storagePath]);
-      } catch (e) {
-        // ignore
-      }
-    }
+    if (!config.isConfigured && isDemoMode()) return;
+    const { error } = await supabase.storage.from(BUCKET_NAME).remove([storagePath]);
+    if (error) throw error;
   },
 };

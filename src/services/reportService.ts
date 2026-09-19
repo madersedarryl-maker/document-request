@@ -1,6 +1,7 @@
 import { supabase, getSupabaseConfig } from '../lib/supabase';
 import { DocumentRequest } from '../types';
 import { mockStore } from './mockStore';
+import { isDemoMode } from '../lib/appConfig';
 
 export interface DashboardStats {
   totalRequests: number;
@@ -26,7 +27,7 @@ export const reportService = {
     const config = getSupabaseConfig();
     let rawRequests: any[] = [];
 
-    if (!config.isConfigured) {
+    if (!config.isConfigured && isDemoMode()) {
       rawRequests = mockStore.getRequests();
     } else {
       try {
@@ -37,6 +38,7 @@ export const reportService = {
         if (error) throw error;
         rawRequests = requests || [];
       } catch (e) {
+        if (!isDemoMode()) throw e;
         rawRequests = mockStore.getRequests();
       }
     }

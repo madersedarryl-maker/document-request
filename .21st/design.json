@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "project": {
+    "name": "react-example",
+    "productType": "institutional registrar portal",
+    "stack": [
+      "react",
+      "tailwind-v4",
+      "vite"
+    ]
+  },
+  "sources": {
+    "tokens": [
+      "src/index.css"
+    ],
+    "components": [],
+    "assets": [
+      "src/assets",
+      "assets"
+    ],
+    "instructions": [
+      "AGENTS.md"
+    ]
+  },
+  "design": {
+    "colorMode": "unknown",
+    "colors": {
+      "primary": "#1E3A5F",
+      "secondary": "#2563EB",
+      "accent": "#D97706",
+      "background": "#F8FAFC",
+      "foreground": "#0F172A"
+    },
+    "typography": {
+      "body": "Plus Jakarta Sans",
+      "display": "DM Serif Display"
+    },
+    "spacing": {},
+    "radius": {},
+    "shadows": {},
+    "motion": {},
+    "density": "unknown"
+  },
+  "components": {
+    "installed": [],
+    "preferredPrimitives": [],
+    "patterns": []
+  },
+  "constraints": {
+    "must": [],
+    "avoid": []
+  },
+  "decisions": [
+    {
+      "decision": "Use an accessible institutional light theme with navy/blue trust cues and restrained maroon/gold school accents.",
+      "reason": "Registrar workflows need high contrast, clear status communication, keyboard-visible focus, and a credible academic tone."
+    },
+    {
+      "decision": "Keep demo mode explicit and opt-in; production uses Supabase only.",
+      "reason": "Prevent browser mock data from masking deployment or authorization failures."
+    }
+  ],
+  "evidence": [
+    {
+      "fact": "design.tokens",
+      "source": "src/index.css"
+    },
+    {
+      "fact": "project.instructions",
+      "source": "AGENTS.md"
+    },
+    {
+      "fact": "project.stack:react",
+      "source": "package.json"
+    },
+    {
+      "fact": "project.stack:tailwind-v4",
+      "source": "package.json"
+    },
+    {
+      "fact": "project.stack:vite",
+      "source": "package.json"
+    }
+  ],
+  "generatedAt": "2026-09-19T14:30:56.237Z"
+}

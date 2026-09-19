@@ -12,6 +12,9 @@ import { storageService } from './storageService';
 import { mockStore } from './mockStore';
 import { verificationService } from './verificationService';
 import { emailService } from './emailService';
+import { isDemoMode } from '../lib/appConfig';
+import { normalizeSubmitRequest } from '../lib/validation';
+import { assertStatusReason, assertValidRequestStatusTransition } from '../lib/requestRules';
 
 export interface SubmitRequestPayload {
   documentTypeId?: string;
@@ -46,22 +49,23 @@ export const requestService = {
    */
   async submitRequest(payload: SubmitRequestPayload): Promise<DocumentRequest> {
     const config = getSupabaseConfig();
-    const docTypeId = payload.documentTypeId || payload.document_type_id!;
-    const releaseMethod = payload.releaseMethod || payload.release_method || 'PICKUP';
-    const deliveryAddress = payload.deliveryAddress || payload.delivery_address || null;
-    const remarks = payload.remarks || null;
+    const normalized = normalizeSubmitRequest(payload);
+    const docTypeId = normalized.documentTypeId;
+    const releaseMethod = normalized.releaseMethod;
+    const deliveryAddress = normalized.deliveryAddress || null;
+    const remarks = normalized.remarks || null;
 
-    if (!config.isConfigured) {
-      const studentId = payload.student_id || payload.studentId || 'stud-prof-001';
+    if (!config.isConfigured && isDemoMode()) {
+      const studentId = normalized.studentId;
       const created = mockStore.createRequest({
         student_id: studentId,
         document_type_id: docTypeId,
-        quantity: payload.quantity,
-        purpose: payload.purpose,
+        quantity: normalized.quantity,
+        purpose: normalized.purpose,
         release_method: releaseMethod,
         delivery_address: deliveryAddress,
         remarks: remarks,
-        fee: payload.fee,
+        fee: normalized.fee,
         files: payload.files,
       });
       return created;
@@ -70,19 +74,7 @@ export const requestService = {
     try {
       const { data: authData } = await supabase.auth.getUser();
       if (!authData?.user) {
-        // Fallback to mock store if auth user missing
-        const studentId = payload.student_id || payload.studentId || 'stud-prof-001';
-        return mockStore.createRequest({
-          student_id: studentId,
-          document_type_id: docTypeId,
-          quantity: payload.quantity,
-          purpose: payload.purpose,
-          release_method: releaseMethod,
-          delivery_address: deliveryAddress,
-          remarks: remarks,
-          fee: payload.fee,
-          files: payload.files,
-        });
+        throw new Error('Your session has expired. Please sign in again before submitting a request.');
       }
 
       const userId = authData.user.id;
@@ -94,7 +86,7 @@ export const requestService = {
         .eq('user_id', userId)
         .single();
 
-      const studentProfileId = student?.id || payload.student_id || payload.studentId || 'stud-prof-001';
+      const studentProfileId = student?.id || normalized.studentId;
 
       // 2. Try RPC first for concurrency safety & atomic sequence number
       let newRequestId: string | null = null;
@@ -103,8 +95,8 @@ export const requestService = {
       try {
         const { data: rpcResult, error: rpcErr } = await supabase.rpc('rpc_submit_document_request', {
           p_document_type_id: docTypeId,
-          p_quantity: payload.quantity,
-          p_purpose: payload.purpose,
+          p_quantity: normalized.quantity,
+          p_purpose: normalized.purpose,
           p_release_method: releaseMethod,
           p_delivery_address: deliveryAddress,
           p_remarks: remarks,
@@ -127,7 +119,7 @@ export const requestService = {
           .eq('id', docTypeId)
           .single();
 
-        const totalFee = payload.fee !== undefined ? payload.fee : (docType?.fee || 0) * payload.quantity;
+        const totalFee = normalized.fee !== undefined ? normalized.fee : (docType?.fee || 0) * normalized.quantity;
         const year = new Date().getFullYear();
         const randomSuffix = Math.floor(100000 + Math.random() * 900000);
         const generatedNumber = `DR-${year}-${randomSuffix}`;
@@ -138,8 +130,8 @@ export const requestService = {
             request_number: generatedNumber,
             student_id: studentProfileId,
             document_type_id: docTypeId,
-            quantity: payload.quantity,
-            purpose: payload.purpose,
+            quantity: normalized.quantity,
+            purpose: normalized.purpose,
             release_method: releaseMethod,
             delivery_address: deliveryAddress,
             remarks: remarks,
@@ -205,7 +197,8 @@ export const requestService = {
       }
 
       const fetched = await this.getRequestById(newRequestId!);
-      const finalReq = fetched || (mockStore.getRequestById(newRequestId!) as DocumentRequest);
+      if (!fetched) throw new Error('The request was created but could not be loaded. Please refresh and try again.');
+      const finalReq = fetched;
 
       // Trigger initial submission confirmation email alert via Edge Function
       try {
@@ -219,16 +212,17 @@ export const requestService = {
 
       return finalReq;
     } catch (e) {
-      console.warn('Supabase submitRequest fallback to mock store:', e);
+      if (!isDemoMode()) throw e;
+      console.warn('Supabase submitRequest using explicit demo store:', e);
       const created = mockStore.createRequest({
-        student_id: payload.student_id || payload.studentId || 'stud-prof-001',
+        student_id: normalized.studentId,
         document_type_id: docTypeId,
-        quantity: payload.quantity,
-        purpose: payload.purpose,
+        quantity: normalized.quantity,
+        purpose: normalized.purpose,
         release_method: releaseMethod,
         delivery_address: deliveryAddress,
         remarks: remarks,
-        fee: payload.fee,
+        fee: normalized.fee,
         files: payload.files,
       });
 
@@ -251,7 +245,7 @@ export const requestService = {
    */
   async getStudentRequests(studentProfileId: string): Promise<DocumentRequest[]> {
     const config = getSupabaseConfig();
-    if (!config.isConfigured) {
+    if (!config.isConfigured && isDemoMode()) {
       return mockStore.getRequests({ studentId: studentProfileId });
     }
 
@@ -268,7 +262,8 @@ export const requestService = {
       if (error) throw error;
       return (data || []) as DocumentRequest[];
     } catch (e) {
-      return mockStore.getRequests({ studentId: studentProfileId });
+      if (isDemoMode()) return mockStore.getRequests({ studentId: studentProfileId });
+      throw e;
     }
   },
 
@@ -277,14 +272,15 @@ export const requestService = {
    */
   async getAllRequests(): Promise<DocumentRequest[]> {
     const config = getSupabaseConfig();
-    if (!config.isConfigured) {
+    if (!config.isConfigured && isDemoMode()) {
       return mockStore.getRequests();
     }
     try {
       const { requests } = await this.getAllRequestsForStaff({ pageSize: 1000 });
       return requests;
     } catch (e) {
-      return mockStore.getRequests();
+      if (isDemoMode()) return mockStore.getRequests();
+      throw e;
     }
   },
 
@@ -296,7 +292,7 @@ export const requestService = {
     totalCount: number;
   }> {
     const config = getSupabaseConfig();
-    if (!config.isConfigured) {
+    if (!config.isConfigured && isDemoMode()) {
       let list = mockStore.getRequests({
         status: filters.status,
         search: filters.search,
@@ -373,14 +369,11 @@ export const requestService = {
         totalCount: count || 0,
       };
     } catch (e) {
-      let list = mockStore.getRequests({
-        status: filters.status,
-        search: filters.search,
-      });
-      return {
-        requests: list,
-        totalCount: list.length,
-      };
+      if (isDemoMode()) {
+        const list = mockStore.getRequests({ status: filters.status, search: filters.search });
+        return { requests: list, totalCount: list.length };
+      }
+      throw e;
     }
   },
 
@@ -389,7 +382,7 @@ export const requestService = {
    */
   async getRequestById(id: string): Promise<DocumentRequest | null> {
     const config = getSupabaseConfig();
-    if (!config.isConfigured) {
+    if (!config.isConfigured && isDemoMode()) {
       return mockStore.getRequestById(id);
     }
 
@@ -417,9 +410,8 @@ export const requestService = {
         .eq('id', id)
         .single();
 
-      if (error || !request) {
-        return mockStore.getRequestById(id);
-      }
+      if (error) throw error;
+      if (!request) return null;
 
       // Attachments
       const { data: attachments } = await supabase
@@ -472,7 +464,8 @@ export const requestService = {
         internal_notes: internalNotes,
       };
     } catch (e) {
-      return mockStore.getRequestById(id);
+      if (isDemoMode()) return mockStore.getRequestById(id);
+      throw e;
     }
   },
 
@@ -512,53 +505,27 @@ export const requestService = {
       comment = commentArg;
     }
 
-    mockStore.updateRequestStatus({
-      requestId,
-      newStatus,
-      changedBy,
-      reason,
-      comment,
-    });
+    const currentRequest = await this.getRequestById(requestId);
+    if (!currentRequest) throw new Error('Request not found or you do not have permission to update it.');
+    assertValidRequestStatusTransition(currentRequest.status, newStatus);
+    assertStatusReason(newStatus, reason, comment);
 
     const config = getSupabaseConfig();
-    if (config.isConfigured) {
-      try {
-        const { data: authData } = await supabase.auth.getUser();
-        const userId = changedBy || authData?.user?.id || 'usr-staff-001';
-
-        const updates: Record<string, any> = {
-          status: newStatus,
-          updated_at: new Date().toISOString(),
-        };
-
-        if (newStatus === 'REJECTED') {
-          updates.rejection_reason = reason;
-        }
-        if (newStatus === 'NEEDS_INFORMATION') {
-          updates.information_request_note = comment || reason;
-        }
-        if (newStatus === 'RELEASED') {
-          updates.released_at = new Date().toISOString();
-          updates.released_by = userId;
-        }
-
-        await supabase.from('requests').update(updates).eq('id', requestId);
-
-        await supabase.from('request_status_history').insert({
-          request_id: requestId,
-          new_status: newStatus,
-          changed_by: userId,
-          reason: reason || null,
-          comment: comment || null,
-        });
-      } catch (e) {
-        console.warn('Supabase updateRequestStatus error:', e);
-      }
+    if (!config.isConfigured && isDemoMode()) {
+      mockStore.updateRequestStatus({ requestId, newStatus, changedBy, reason, comment });
+    } else {
+      const { error } = await supabase.rpc('rpc_update_request_status', {
+        p_request_id: requestId,
+        p_new_status: newStatus,
+        p_reason: reason || null,
+        p_comment: comment || null,
+      });
+      if (error) throw error;
     }
 
     // Trigger automated email notification to student informing them of the status progress
     try {
-      const updatedReq = mockStore.getRequestById(requestId);
+      const updatedReq = isDemoMode() ? mockStore.getRequestById(requestId) : await this.getRequestById(requestId);
       if (updatedReq) {
         await emailService.sendSingleStatusEmailNotification(updatedReq, newStatus, {
           reason,
@@ -633,54 +600,37 @@ export const requestService = {
    * Update request priority (Staff & Admin)
    */
   async updatePriority(requestId: string, priority: RequestPriority): Promise<void> {
-    mockStore.updatePriority(requestId, priority);
     const config = getSupabaseConfig();
-    if (config.isConfigured) {
-      try {
-        await supabase
-          .from('requests')
-          .update({ priority, updated_at: new Date().toISOString() })
-          .eq('id', requestId);
-      } catch (e) {
-        // ignore
-      }
+    if (!config.isConfigured && isDemoMode()) {
+      mockStore.updatePriority(requestId, priority);
+      return;
     }
+    const { error } = await supabase.from('requests').update({ priority, updated_at: new Date().toISOString() }).eq('id', requestId);
+    if (error) throw error;
   },
 
   /**
    * Alias for updatePriority with audit logging
    */
   async updateRequestPriority(requestId: string, priority: RequestPriority, changedBy?: string): Promise<void> {
-    mockStore.updatePriority(requestId, priority);
-    const config = getSupabaseConfig();
-    if (config.isConfigured) {
-      try {
-        await supabase
-          .from('requests')
-          .update({ priority, updated_at: new Date().toISOString() })
-          .eq('id', requestId);
-      } catch (e) {
-        // ignore
-      }
+    if (!getSupabaseConfig().isConfigured && isDemoMode()) {
+      mockStore.updatePriority(requestId, priority);
+      return;
     }
+    const { error } = await supabase.from('requests').update({ priority, updated_at: new Date().toISOString() }).eq('id', requestId);
+    if (error) throw error;
   },
 
   /**
    * Update payment status
    */
   async updatePaymentStatus(requestId: string, paymentStatus: any, changedBy?: string): Promise<void> {
-    mockStore.updatePaymentStatus(requestId, paymentStatus);
-    const config = getSupabaseConfig();
-    if (config.isConfigured) {
-      try {
-        await supabase
-          .from('requests')
-          .update({ payment_status: paymentStatus, updated_at: new Date().toISOString() })
-          .eq('id', requestId);
-      } catch (e) {
-        // ignore
-      }
+    if (!getSupabaseConfig().isConfigured && isDemoMode()) {
+      mockStore.updatePaymentStatus(requestId, paymentStatus);
+      return;
     }
+    const { error } = await supabase.from('requests').update({ payment_status: paymentStatus, updated_at: new Date().toISOString() }).eq('id', requestId);
+    if (error) throw error;
   },
 
   /**
@@ -691,25 +641,20 @@ export const requestService = {
     authorIdOrNote: string,
     noteText?: string
   ): Promise<RequestInternalNote> {
-    const note = noteText || authorIdOrNote;
+    const note = (noteText || authorIdOrNote).trim();
+    if (note.length < 3) throw new Error('Internal notes must be at least 3 characters.');
     const authorId = noteText ? authorIdOrNote : undefined;
-    const createdNote = mockStore.addInternalNote(requestId, note, authorId);
-
     const config = getSupabaseConfig();
-    if (config.isConfigured) {
-      try {
-        const { data: authData } = await supabase.auth.getUser();
-        await supabase.from('request_internal_notes').insert({
-          request_id: requestId,
-          author_id: authorId || authData?.user?.id,
-          note: note.trim(),
-        });
-      } catch (e) {
-        // ignore
-      }
-    }
+    if (!config.isConfigured && isDemoMode()) return mockStore.addInternalNote(requestId, note, authorId);
 
-    return createdNote;
+    const { data: authData } = await supabase.auth.getUser();
+    const { data, error } = await supabase.from('request_internal_notes').insert({
+      request_id: requestId,
+      author_id: authorId || authData?.user?.id,
+      note,
+    }).select('*').single();
+    if (error) throw error;
+    return data as RequestInternalNote;
   },
 
   /**
@@ -747,7 +692,7 @@ export const requestService = {
     studentIdNum: string
   ): Promise<DocumentRequest | null> {
     const config = getSupabaseConfig();
-    if (!config.isConfigured) {
+    if (!config.isConfigured && isDemoMode()) {
       const list = mockStore.getRequests();
       const match = list.find(
         (r) =>
@@ -774,16 +719,7 @@ export const requestService = {
         .ilike('request_number', requestNumber.trim())
         .single();
 
-      if (error || !data) {
-        const list = mockStore.getRequests();
-        return (
-          list.find(
-            (r) =>
-              r.request_number.toLowerCase() === requestNumber.trim().toLowerCase() &&
-              r.student?.student_id.toLowerCase() === studentIdNum.trim().toLowerCase()
-          ) || null
-        );
-      }
+      if (error || !data) return null;
 
       if (data.student?.student_id?.toLowerCase() !== studentIdNum.trim().toLowerCase()) {
         return null;
@@ -800,14 +736,13 @@ export const requestService = {
         status_history: (history || []) as RequestStatusHistory[],
       } as DocumentRequest;
     } catch (e) {
+      if (!isDemoMode()) throw e;
       const list = mockStore.getRequests();
-      return (
-        list.find(
-          (r) =>
-            r.request_number.toLowerCase() === requestNumber.trim().toLowerCase() &&
-            r.student?.student_id.toLowerCase() === studentIdNum.trim().toLowerCase()
-        ) || null
-      );
+      return list.find(
+        (r) =>
+          r.request_number.toLowerCase() === requestNumber.trim().toLowerCase() &&
+          r.student?.student_id.toLowerCase() === studentIdNum.trim().toLowerCase()
+      ) || null;
     }
   },
 
@@ -900,7 +835,7 @@ export const requestService = {
     }
 
     // 2. Local fallback events (for demo, testing, mock store)
-    if (typeof window !== 'undefined') {
+    if (isDemoMode() && typeof window !== 'undefined') {
       const handleCreated = (e: Event) => {
         const customEvent = e as CustomEvent<{ request: DocumentRequest; eventType: 'INSERT' }>;
         if (customEvent.detail?.request) {

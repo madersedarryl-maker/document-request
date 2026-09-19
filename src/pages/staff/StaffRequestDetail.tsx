@@ -54,6 +54,7 @@ export const StaffRequestDetail: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // Dialog States
   const [dialogType, setDialogType] = useState<
@@ -120,6 +121,7 @@ export const StaffRequestDetail: React.FC = () => {
   const handleStatusTransition = async (newStatus: RequestStatus, reason?: string, comment?: string) => {
     if (!request || !user) return;
     setActionLoading(true);
+    setActionFeedback(null);
     try {
       await requestService.updateRequestStatus({
         requestId: request.id,
@@ -129,10 +131,11 @@ export const StaffRequestDetail: React.FC = () => {
         comment,
       });
       setDialogType(null);
+      setActionFeedback({ type: 'success', message: `Request moved to ${newStatus.replace(/_/g, ' ').toLowerCase()}.` });
       await fetchDetails();
     } catch (err: any) {
       console.error('Status change error:', err);
-      alert(err.message || 'Failed to update request status.');
+      setActionFeedback({ type: 'error', message: err.message || 'Failed to update request status.' });
     } finally {
       setActionLoading(false);
     }
@@ -141,24 +144,28 @@ export const StaffRequestDetail: React.FC = () => {
   // Change Priority
   const handlePriorityChange = async (priority: RequestPriority) => {
     if (!request || !user) return;
+    setActionFeedback(null);
     try {
       await requestService.updateRequestPriority(request.id, priority, user.id);
       await fetchDetails();
+      setActionFeedback({ type: 'success', message: 'Request priority updated.' });
     } catch (err: any) {
       console.error('Priority update error:', err);
-      alert(err.message || 'Failed to update priority.');
+      setActionFeedback({ type: 'error', message: err.message || 'Failed to update priority.' });
     }
   };
 
   // Change Payment Status
   const handlePaymentChange = async (paymentStatus: PaymentStatus) => {
     if (!request || !user) return;
+    setActionFeedback(null);
     try {
       await requestService.updatePaymentStatus(request.id, paymentStatus, user.id);
       await fetchDetails();
+      setActionFeedback({ type: 'success', message: 'Payment status updated.' });
     } catch (err: any) {
       console.error('Payment update error:', err);
-      alert(err.message || 'Failed to update payment status.');
+      setActionFeedback({ type: 'error', message: err.message || 'Failed to update payment status.' });
     }
   };
 
@@ -167,13 +174,15 @@ export const StaffRequestDetail: React.FC = () => {
     e.preventDefault();
     if (!newNote.trim() || !request || !user) return;
     setSubmittingNote(true);
+    setActionFeedback(null);
     try {
       await requestService.addInternalNote(request.id, user.id, newNote.trim());
       setNewNote('');
+      setActionFeedback({ type: 'success', message: 'Internal note added.' });
       await fetchDetails();
     } catch (err: any) {
       console.error('Add note error:', err);
-      alert(err.message || 'Failed to add internal note.');
+      setActionFeedback({ type: 'error', message: err.message || 'Failed to add internal note.' });
     } finally {
       setSubmittingNote(false);
     }
@@ -198,11 +207,11 @@ export const StaffRequestDetail: React.FC = () => {
       setIsCustomEmailModalOpen(false);
       setCustomEmailSubject('');
       setCustomEmailBody('');
-      alert('Automated status update email alert successfully triggered via Supabase Edge Function!');
+      setActionFeedback({ type: 'success', message: 'The status email was queued for delivery.' });
       await fetchDetails();
     } catch (err: any) {
       console.error('Custom email dispatch error:', err);
-      alert(err.message || 'Failed to send automated status email.');
+      setActionFeedback({ type: 'error', message: err.message || 'Failed to send automated status email.' });
     } finally {
       setSendingCustomEmail(false);
     }
@@ -299,6 +308,21 @@ export const StaffRequestDetail: React.FC = () => {
           </div>
         }
       />
+
+      {actionFeedback && (
+        <div
+          role="status"
+          aria-live="polite"
+          className={`flex items-start gap-3 rounded-xl border px-4 py-3 text-sm ${
+            actionFeedback.type === 'success'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+              : 'border-rose-200 bg-rose-50 text-rose-900'
+          }`}
+        >
+          {actionFeedback.type === 'success' ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /> : <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />}
+          <p>{actionFeedback.message}</p>
+        </div>
+      )}
 
       {/* Navigation Tab Bar */}
       <div className="flex items-center gap-2 border-b border-slate-200 bg-white px-2 pt-2 rounded-t-xl">
@@ -516,7 +540,7 @@ export const StaffRequestDetail: React.FC = () => {
                   placeholder="Add internal staff note..."
                   value={newNote}
                   onChange={(e) => setNewNote(e.target.value)}
-                  className="w-full text-xs p-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-600 focus:outline-none"
+                  className="w-full text-xs p-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-600"
                 />
                 <Button
                   type="submit"

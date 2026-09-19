@@ -4,6 +4,7 @@ import { supabase, testSupabaseConnection, getSupabaseConfig } from '../lib/supa
 import { authService, StudentSignUpData } from '../services/authService';
 import { UserProfile, StudentProfile, StaffProfile, UserRole } from '../types';
 import { mockStore } from '../services/mockStore';
+import { isDemoMode } from '../lib/appConfig';
 
 interface AuthContextType {
   user: User | null;
@@ -83,9 +84,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
     }
-    const currentMock = mockStore.getCurrentUser();
-    if (currentMock) {
-      await loadUserData(null, currentMock.id);
+    if (isDemoMode()) {
+      const currentMock = mockStore.getCurrentUser();
+      if (currentMock) {
+        await loadUserData(null, currentMock.id);
+      }
     }
   };
 
@@ -99,10 +102,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (session?.user) {
           loadUserData(session.user);
         } else {
-          // Check local store default
-          const currentMock = mockStore.getCurrentUser();
-          if (currentMock) {
-            loadUserData(null, currentMock.id);
+          if (isDemoMode()) {
+            const currentMock = mockStore.getCurrentUser();
+            if (currentMock) {
+              loadUserData(null, currentMock.id);
+            } else {
+              setLoading(false);
+            }
           } else {
             setLoading(false);
           }
@@ -116,9 +122,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (session?.user) {
           await loadUserData(session.user);
         } else {
-          const currentMock = mockStore.getCurrentUser();
-          if (currentMock) {
-            await loadUserData(null, currentMock.id);
+          if (isDemoMode()) {
+            const currentMock = mockStore.getCurrentUser();
+            if (currentMock) {
+              await loadUserData(null, currentMock.id);
+            } else {
+              setUser(null);
+              setProfile(null);
+              setStudentProfile(null);
+              setStaffProfile(null);
+              setLoading(false);
+            }
           } else {
             setUser(null);
             setProfile(null);
@@ -133,11 +147,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         subscription.unsubscribe();
       };
     } else {
-      // Local demo mode initialized
-      const currentMock = mockStore.getCurrentUser() || mockStore.getUserById('usr-student-001');
-      if (currentMock) {
-        mockStore.setCurrentUserId(currentMock.id);
-        loadUserData(null, currentMock.id);
+      if (isDemoMode()) {
+        const currentMock = mockStore.getCurrentUser() || mockStore.getUserById('usr-student-001');
+        if (currentMock) {
+          mockStore.setCurrentUserId(currentMock.id);
+          loadUserData(null, currentMock.id);
+        } else {
+          setLoading(false);
+        }
       } else {
         setLoading(false);
       }
@@ -157,6 +174,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const switchDemoAccount = async (targetRole: 'STUDENT' | 'STAFF' | 'ADMIN') => {
+    if (!isDemoMode()) {
+      throw new Error('Demo account switching is disabled in production mode.');
+    }
     setLoading(true);
     try {
       let targetId = 'usr-student-001';

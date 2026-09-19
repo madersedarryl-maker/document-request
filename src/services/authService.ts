@@ -1,6 +1,7 @@
 import { supabase, getSupabaseConfig } from '../lib/supabase';
 import { UserProfile, StudentProfile, StaffProfile, UserRole } from '../types';
 import { mockStore } from './mockStore';
+import { isDemoMode, productionConfigurationMessage } from '../lib/appConfig';
 
 export interface StudentSignUpData {
   email: string;
@@ -19,7 +20,7 @@ export const authService = {
    */
   async signUpStudent(data: StudentSignUpData) {
     const config = getSupabaseConfig();
-    if (!config.isConfigured) {
+    if (!config.isConfigured && isDemoMode()) {
       const { profile } = mockStore.createStudentUser({
         email: data.email,
         fullName: data.fullName,
@@ -36,6 +37,7 @@ export const authService = {
         user_metadata: { full_name: profile.full_name, role: profile.role },
       } as any;
     }
+    if (!config.isConfigured) throw new Error(productionConfigurationMessage);
 
     try {
       // 1. Create auth user
@@ -90,7 +92,8 @@ export const authService = {
 
       return authData.user;
     } catch (err) {
-      console.warn('Supabase signUp error, fallback to mock store:', err);
+      if (!isDemoMode()) throw err;
+      console.warn('Supabase signUp error, using explicit demo store:', err);
       const { profile } = mockStore.createStudentUser({
         email: data.email,
         fullName: data.fullName,
@@ -116,7 +119,7 @@ export const authService = {
     const config = getSupabaseConfig();
     const cleanEmail = email.trim().toLowerCase();
 
-    if (!config.isConfigured) {
+    if (!config.isConfigured && isDemoMode()) {
       // Find in mock store or create student on the fly if not existing
       let user = mockStore.getUserByEmail(cleanEmail);
       if (!user) {
@@ -157,6 +160,7 @@ export const authService = {
         session: { access_token: 'mock-token' },
       } as any;
     }
+    if (!config.isConfigured) throw new Error(productionConfigurationMessage);
 
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -166,7 +170,7 @@ export const authService = {
 
       if (error) {
         // If it's a demo account and not in remote Supabase auth yet, fall back to mock store smoothly
-        const user = mockStore.getUserByEmail(cleanEmail);
+        const user = isDemoMode() ? mockStore.getUserByEmail(cleanEmail) : null;
         if (user && (cleanEmail.includes('university.edu') || cleanEmail.includes('demo') || cleanEmail.includes('test'))) {
           console.info('Using local demo credentials fallback for:', cleanEmail);
           mockStore.setCurrentUserId(user.id);
@@ -206,7 +210,7 @@ export const authService = {
       return data;
     } catch (err: any) {
       console.warn('Supabase signIn error:', err);
-      const user = mockStore.getUserByEmail(cleanEmail);
+      const user = isDemoMode() ? mockStore.getUserByEmail(cleanEmail) : null;
       if (user && (cleanEmail.includes('university.edu') || cleanEmail.includes('demo') || cleanEmail.includes('student') || cleanEmail.includes('staff') || cleanEmail.includes('admin'))) {
         mockStore.setCurrentUserId(user.id);
         return {
@@ -226,7 +230,7 @@ export const authService = {
    * Sign out current user
    */
   async signOut() {
-    mockStore.setCurrentUserId(null);
+    if (isDemoMode()) mockStore.setCurrentUserId(null);
     const config = getSupabaseConfig();
     if (config.isConfigured) {
       try {
@@ -251,9 +255,10 @@ export const authService = {
    */
   async resetPassword(email: string) {
     const config = getSupabaseConfig();
-    if (!config.isConfigured) {
+    if (!config.isConfigured && isDemoMode()) {
       return { success: true };
     }
+    if (!config.isConfigured) throw new Error(productionConfigurationMessage);
     try {
       const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`,
@@ -261,7 +266,8 @@ export const authService = {
       if (error) throw error;
       return data;
     } catch (e) {
-      return { success: true };
+      if (isDemoMode()) return { success: true };
+      throw e;
     }
   },
 
@@ -270,9 +276,10 @@ export const authService = {
    */
   async updatePassword(password: string) {
     const config = getSupabaseConfig();
-    if (!config.isConfigured) {
+    if (!config.isConfigured && isDemoMode()) {
       return { success: true };
     }
+    if (!config.isConfigured) throw new Error(productionConfigurationMessage);
     const { data, error } = await supabase.auth.updateUser({ password });
     if (error) throw error;
     return data;
@@ -287,12 +294,13 @@ export const authService = {
     staffProfile: StaffProfile | null;
   }> {
     const config = getSupabaseConfig();
-    if (!config.isConfigured) {
+    if (!config.isConfigured && isDemoMode()) {
       const profile = mockStore.getUserById(userId);
       const studentProfile = mockStore.getStudentProfileByUserId(userId);
       const staffProfile = mockStore.getStaffProfileByUserId(userId);
       return { profile, studentProfile, staffProfile };
     }
+    if (!config.isConfigured) throw new Error(productionConfigurationMessage);
 
     try {
       // 1. Try querying remote profiles table
@@ -393,14 +401,15 @@ export const authService = {
           return { profile: autoProfile, studentProfile: autoStudent, staffProfile: autoStaff };
         }
 
-        // Check fallback in mock store
-        const mockP = mockStore.getUserById(userId);
-        if (mockP) {
-          return {
-            profile: mockP,
-            studentProfile: mockStore.getStudentProfileByUserId(userId),
-            staffProfile: mockStore.getStaffProfileByUserId(userId),
-          };
+        if (isDemoMode()) {
+          const mockP = mockStore.getUserById(userId);
+          if (mockP) {
+            return {
+              profile: mockP,
+              studentProfile: mockStore.getStudentProfileByUserId(userId),
+              staffProfile: mockStore.getStaffProfileByUserId(userId),
+            };
+          }
         }
         return { profile: null, studentProfile: null, staffProfile: null };
       }
@@ -426,6 +435,7 @@ export const authService = {
 
       return { profile, studentProfile, staffProfile };
     } catch (e) {
+      if (!isDemoMode()) throw e;
       const profile = mockStore.getUserById(userId);
       const studentProfile = mockStore.getStudentProfileByUserId(userId);
       const staffProfile = mockStore.getStaffProfileByUserId(userId);
@@ -449,9 +459,9 @@ export const authService = {
       emergency_contact?: string | null;
     }
   ) {
-    mockStore.updateProfile(userId, updates, studentUpdates);
-
     const config = getSupabaseConfig();
+    if (!config.isConfigured && !isDemoMode()) throw new Error(productionConfigurationMessage);
+    if (isDemoMode()) mockStore.updateProfile(userId, updates, studentUpdates);
     if (config.isConfigured) {
       try {
         await supabase
@@ -484,9 +494,10 @@ export const authService = {
    */
   async getAllUsers() {
     const config = getSupabaseConfig();
-    if (!config.isConfigured) {
+    if (!config.isConfigured && isDemoMode()) {
       return mockStore.getAllUsers();
     }
+    if (!config.isConfigured) throw new Error(productionConfigurationMessage);
 
     try {
       const { data: profiles, error } = await supabase
@@ -497,7 +508,8 @@ export const authService = {
       if (error) throw error;
       return profiles || [];
     } catch (e) {
-      return mockStore.getAllUsers();
+      if (isDemoMode()) return mockStore.getAllUsers();
+      throw e;
     }
   },
 
@@ -509,9 +521,9 @@ export const authService = {
     role: UserRole,
     status: 'ACTIVE' | 'INACTIVE'
   ) {
-    mockStore.updateUserRoleAndStatus(userId, role, status);
-
     const config = getSupabaseConfig();
+    if (!config.isConfigured && !isDemoMode()) throw new Error(productionConfigurationMessage);
+    if (isDemoMode()) mockStore.updateUserRoleAndStatus(userId, role, status);
     if (config.isConfigured) {
       try {
         await supabase

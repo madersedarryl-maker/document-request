@@ -7,6 +7,7 @@ import {
 import { mockStore } from './mockStore';
 import { supabase, getSupabaseConfig } from '../lib/supabase';
 import { format } from 'date-fns';
+import { isDemoMode, productionConfigurationMessage } from '../lib/appConfig';
 
 export interface EmailTemplateConfig {
   subjectTemplate: string;
@@ -293,6 +294,7 @@ export const emailService = {
 
         // 1. Invoke Supabase Edge Function: send-status-email
         const config = getSupabaseConfig();
+        if (!config.isConfigured && !isDemoMode()) throw new Error(productionConfigurationMessage);
         if (config.isConfigured) {
           try {
             const { data: funcData, error: funcErr } = await supabase.functions.invoke('send-status-email', {
@@ -320,9 +322,11 @@ export const emailService = {
               providerMessageId = funcData.notification?.messageId || providerMessageId;
               deliveryMode = funcData.notification?.deliveryMode || 'live';
             } else if (funcErr) {
+              if (!isDemoMode()) throw funcErr;
               console.warn('Supabase Edge Function returned notice, using integrated delivery fallback:', funcErr);
             }
           } catch (edgeErr) {
+            if (!isDemoMode()) throw edgeErr;
             console.warn('Supabase Edge Function invocation error:', edgeErr);
           }
         }
@@ -382,11 +386,10 @@ export const emailService = {
           created_at: new Date().toISOString(),
         };
 
-        // Add to mockStore
-        mockStore.addNotification(notif);
+        if (isDemoMode()) mockStore.addNotification(notif);
 
         // Store email log in localStorage for persistence across reloads
-        try {
+        if (isDemoMode()) try {
           const currentLogs = JSON.parse(localStorage.getItem('ibacmi_email_notification_logs') || '[]');
           currentLogs.unshift(emailLog);
           localStorage.setItem('ibacmi_email_notification_logs', JSON.stringify(currentLogs.slice(0, 200)));
@@ -405,7 +408,7 @@ export const emailService = {
               type: notifType,
             });
           } catch (e) {
-            // fallback gracefully
+            if (!isDemoMode()) throw e;
           }
 
           try {
@@ -422,7 +425,7 @@ export const emailService = {
               sent_at: new Date().toISOString(),
             });
           } catch (e) {
-            // fallback gracefully if table not yet migrated
+            if (!isDemoMode()) throw e;
           }
         }
 
@@ -434,7 +437,7 @@ export const emailService = {
     }
 
     // Add Audit Log
-    mockStore.addAuditLog({
+    if (isDemoMode()) mockStore.addAuditLog({
       user_id: senderId,
       action: 'BATCH_EMAIL_SENT',
       entity_type: 'requests',
@@ -448,7 +451,7 @@ export const emailService = {
     });
 
     // Fire client custom event for live inbox/toasts
-    if (typeof window !== 'undefined') {
+    if (isDemoMode() && typeof window !== 'undefined') {
       window.dispatchEvent(
         new CustomEvent('ibacmi:bulk_emails_sent', {
           detail: {
@@ -486,6 +489,7 @@ export const emailService = {
   ): Promise<EmailNotificationLog | null> {
     let request: DocumentRequest | null = null;
     if (typeof requestOrId === 'string') {
+      if (!isDemoMode()) throw new Error('A complete request record is required for production email dispatch.');
       request = mockStore.getRequestById(requestOrId);
     } else {
       request = requestOrId;
@@ -512,6 +516,7 @@ export const emailService = {
    * Get all stored email logs from local storage and in-memory store
    */
   getEmailLogs(): EmailNotificationLog[] {
+    if (!isDemoMode()) return [];
     try {
       const stored = localStorage.getItem('ibacmi_email_notification_logs');
       return stored ? JSON.parse(stored) : [];
@@ -524,7 +529,7 @@ export const emailService = {
    * Fetch all email logs for a specific request ID
    */
   async getEmailLogsForRequest(requestId: string): Promise<EmailNotificationLog[]> {
-    const localLogs = this.getEmailLogs().filter((l) => l.request_id === requestId);
+    const localLogs = isDemoMode() ? this.getEmailLogs().filter((l) => l.request_id === requestId) : [];
 
     const config = getSupabaseConfig();
     if (config.isConfigured) {
@@ -565,10 +570,11 @@ export const emailService = {
           );
         }
       } catch (e) {
-        // fallback to local logs
+        if (!isDemoMode()) throw e;
       }
     }
 
+    if (!isDemoMode() && !config.isConfigured) throw new Error(productionConfigurationMessage);
     return localLogs;
   },
 
@@ -619,9 +625,12 @@ export const emailService = {
           data,
         };
       } catch (err: any) {
+        if (!isDemoMode()) throw err;
         console.warn('Edge function test error, using sandbox fallback:', err);
       }
     }
+
+    if (!isDemoMode()) throw new Error('The email service is not available. Configure Supabase Edge Functions first.');
 
     // Fallback sandbox test execution
     const mockId = `sim_test_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
