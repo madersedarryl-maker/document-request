@@ -62,6 +62,10 @@
     {
       "decision": "Use a compact public navigation with Programs, Services, and Track Request visible; group About, News, and Contact under More; keep Log in prominent.",
       "reason": "Reduce cognitive load while preserving access to secondary institutional pages and the most important request actions."
+    },
+    {
+      "decision": "Use a collapsible left sidebar for authenticated student portal navigation, with a slide-out drawer on mobile.",
+      "reason": "Keep portal navigation available without consuming phone vertical space, while preserving five focused student actions and accessible touch targets."
     }
   ],
   "evidence": [

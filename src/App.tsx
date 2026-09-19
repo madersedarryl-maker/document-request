@@ -6,6 +6,7 @@ import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { ToastAlert } from './components/ToastAlert';
 import { AdminStaffLayout } from './components/layout/AdminStaffLayout';
+import { StudentPortalLayout } from './components/layout/StudentPortalLayout';
 import { isRoleAllowed } from './lib/permissions';
 import { appConfig } from './lib/appConfig';
 import { getSupabaseConfig } from './lib/supabase';
@@ -89,7 +90,11 @@ const HomeRoute: React.FC = () => {
     );
   }
 
-  return <StudentDashboard />;
+  return (
+    <StudentPortalLayout>
+      <StudentDashboard />
+    </StudentPortalLayout>
+  );
 };
 
 const RouteFallback: React.FC = () => (
@@ -110,14 +115,24 @@ const AppShell: React.FC = () => {
       location.pathname.startsWith('/admin') ||
       location.pathname === '/services' ||
       location.pathname === '/track');
+  const isStudentWorkspace =
+    !!user &&
+    role === 'STUDENT' &&
+    (location.pathname === '/dashboard' ||
+      location.pathname.startsWith('/my-requests') ||
+      location.pathname.startsWith('/new-request') ||
+      location.pathname.startsWith('/request/') ||
+      location.pathname === '/services' ||
+      location.pathname === '/track');
+  const isPortalWorkspace = isStaffAdminWorkspace || isStudentWorkspace;
   const showConfigurationNotice =
     appConfig.isProduction &&
     !getSupabaseConfig().isConfigured &&
-    (location.pathname === '/login' || location.pathname === '/register' || location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/staff') || location.pathname.startsWith('/admin'));
+    (location.pathname === '/login' || location.pathname === '/register' || location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/my-requests') || location.pathname.startsWith('/new-request') || location.pathname.startsWith('/request/') || location.pathname.startsWith('/staff') || location.pathname.startsWith('/admin'));
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 font-sans text-slate-900 selection:bg-amber-100 selection:text-blue-950">
-      {!isStaffAdminWorkspace && <Navbar />}
+      {!isPortalWorkspace && <Navbar />}
 
       {showConfigurationNotice && (
         <div role="alert" className="border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-center text-xs font-medium text-amber-950">
@@ -140,6 +155,10 @@ const AppShell: React.FC = () => {
                 <AdminStaffLayout>
                   <PortalServicesPage />
                 </AdminStaffLayout>
+              ) : user && role === 'STUDENT' ? (
+                <StudentPortalLayout>
+                  <PortalServicesPage />
+                </StudentPortalLayout>
               ) : (
                 <PortalServicesPage />
               )
@@ -158,6 +177,10 @@ const AppShell: React.FC = () => {
                 <AdminStaffLayout>
                   <PublicTrack />
                 </AdminStaffLayout>
+              ) : user && role === 'STUDENT' ? (
+                <StudentPortalLayout>
+                  <PublicTrack />
+                </StudentPortalLayout>
               ) : (
                 <PublicTrack />
               )
@@ -179,7 +202,9 @@ const AppShell: React.FC = () => {
             path="/new-request"
             element={
               <ProtectedRoute allowedRoles={['STUDENT']}>
-                <NewRequestForm />
+                <StudentPortalLayout>
+                  <NewRequestForm />
+                </StudentPortalLayout>
               </ProtectedRoute>
             }
           />
@@ -187,15 +212,19 @@ const AppShell: React.FC = () => {
             path="/my-requests"
             element={
               <ProtectedRoute allowedRoles={['STUDENT']}>
-                <MyRequests />
+                <StudentPortalLayout>
+                  <MyRequests />
+                </StudentPortalLayout>
               </ProtectedRoute>
             }
           />
           <Route
             path="/request/:id"
             element={
-              <ProtectedRoute>
-                <RequestDetail />
+              <ProtectedRoute allowedRoles={['STUDENT']}>
+                <StudentPortalLayout>
+                  <RequestDetail />
+                </StudentPortalLayout>
               </ProtectedRoute>
             }
           />
@@ -280,7 +309,7 @@ const AppShell: React.FC = () => {
         </Suspense>
       </main>
 
-      {!isStaffAdminWorkspace && <Footer />}
+      {!isPortalWorkspace && <Footer />}
       <ToastAlert />
     </div>
   );
